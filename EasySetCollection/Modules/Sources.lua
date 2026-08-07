@@ -477,23 +477,25 @@ function Sources.GuideTargets(setID)
     end
   end
 
+  -- every instance the set drops in is a target (raid/dungeon entrance), even
+  -- when nothing is missing there — missing pieces only drive the priority
   local instTargets = {}
   for _, piece in ipairs(ns.Pieces.For(setID)) do
-    if not piece.collected then
-      local jid = Sources.PieceInstance(setID, piece)
-      if jid then
-        local t = byJid[jid]
-        if not t then
-          t = { jid = jid, title = Sources.InstanceName(jid), missing = 0 }
-          byJid[jid] = t
-          instTargets[#instTargets + 1] = t
-        end
-        t.missing = t.missing + 1
+    local jid = Sources.PieceInstance(setID, piece)
+    if jid then
+      local t = byJid[jid]
+      if not t then
+        t = { jid = jid, title = Sources.InstanceName(jid), missing = 0, pieces = 0 }
+        byJid[jid] = t
+        instTargets[#instTargets + 1] = t
       end
+      t.pieces = t.pieces + 1
+      if not piece.collected then t.missing = t.missing + 1 end
     end
   end
   table.sort(instTargets, function(a, b)
     if a.missing ~= b.missing then return a.missing > b.missing end
+    if (a.pieces or 0) ~= (b.pieces or 0) then return (a.pieces or 0) > (b.pieces or 0) end
     return a.title < b.title
   end)
   for _, t in ipairs(instTargets) do out[#out + 1] = t end
