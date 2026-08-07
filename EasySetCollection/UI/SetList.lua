@@ -79,9 +79,9 @@ local function ensureRowWidgets(row)
   row.star:SetSize(16, 16)
   row.star:SetPoint("TOPLEFT", 0, 0)
 
-  -- weekly-lockout indicator, left of the X/N counter (amber = lockout
-  -- progress this week, red = nothing left to farm this week). Ignores the
-  -- row's dimming so it stays readable on untouched (0/N) sets.
+  -- weekly-lockout indicator, left of the X/N counter, tinted like the row's
+  -- progress (red when nothing is left to farm this week). Ignores the row's
+  -- dimming so it stays readable on untouched (0/N) sets.
   row.lock = row:CreateTexture(nil, "OVERLAY")
   if ns.Lockouts then ns.Lockouts.ApplyIcon(row.lock) end
   row.lock:SetSize(16, 16)
@@ -138,13 +138,6 @@ local function paintRow(row)
   row.tag:SetText(W.GREY .. tagText(g) .. "|r")
   row.star:SetShown(g.favorite or false)
 
-  local lockState = ns.Lockouts and ns.Lockouts.GroupState(g) or nil
-  row.lock:SetShown(lockState ~= nil)
-  if lockState == "cleared" then
-    row.lock:SetVertexColor(0.95, 0.35, 0.30)
-  else
-    row.lock:SetVertexColor(W.C_AMBER_TX[1], W.C_AMBER_TX[2], W.C_AMBER_TX[3])
-  end
 
   local n, t = ns.Pieces.GroupProgress(g)
   local sel = (g.baseSetID == SetList.selected)
@@ -171,6 +164,18 @@ local function paintRow(row)
     row.barFill:SetColorTexture(0, 0, 0, 0)
   end
   row.barFill:SetWidth(math.max(0.01, 52 * (t > 0 and n / t or 0)))
+
+  -- lockout indicator: red when nothing is left to farm this week, otherwise
+  -- the same color as the row's progress (amber started / light grey untouched)
+  local lockState = ns.Lockouts and ns.Lockouts.GroupState(g) or nil
+  row.lock:SetShown(lockState ~= nil)
+  if lockState == "cleared" then
+    row.lock:SetVertexColor(0.95, 0.35, 0.30)
+  elseif n > 0 then
+    row.lock:SetVertexColor(W.C_AMBER_TX[1], W.C_AMBER_TX[2], W.C_AMBER_TX[3])
+  else
+    row.lock:SetVertexColor(0.85, 0.85, 0.9)
+  end
 end
 
 local function initRow(row, entry)
