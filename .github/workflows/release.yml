@@ -9,10 +9,16 @@ name: Release
 # attached to a GitHub Release tagged vX.Y.Z.
 #
 # Required repo config (Settings -> Secrets and variables -> Actions):
-#   Secrets:   CF_API_KEY   (CurseForge API token — without it the CurseForge
-#                            upload is skipped, the GitHub release still happens)
-#   Variables: GAME_VERSIONS (optional, overrides the default list below)
+#   Secrets:   CF_API_KEY     (CurseForge API token — without it the CurseForge
+#                              upload is skipped, the GitHub release still happens)
+#              WAGO_API_TOKEN (Wago Addons API token — upload skipped without it)
+#              WOWI_API_TOKEN (WoWInterface API token — upload skipped without it)
+#   Variables: GAME_VERSIONS   (optional, overrides the default list below)
+#              WAGO_PROJECT_ID (Wago project id/slug — upload skipped without it)
+#              WOWI_ADDON_ID   (WoWInterface addon id — upload skipped without it)
 # and Settings -> Actions -> Workflow permissions: "Read and write".
+# Wago/WoWInterface need the project created and a first file uploaded manually
+# on their site; the steps below handle every later release.
 on:
   push:
     branches: [main]
@@ -29,6 +35,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CF_API_KEY: ${{ secrets.CF_API_KEY }}
+      WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
+      WOWI_API_TOKEN: ${{ secrets.WOWI_API_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -92,6 +100,37 @@ jobs:
           display_name: EasySetCollection ${{ steps.meta.outputs.version }}
           changelog: ${{ steps.notes.outputs.body }}
           changelog_type: markdown
+
+      - name: Upload to Wago Addons
+        if: steps.meta.outputs.exists == 'false' && env.WAGO_API_TOKEN != '' && vars.WAGO_PROJECT_ID != ''
+        run: |
+          # Wago wants ONE supported patch per flavor — take the newest of the list.
+          patch="${{ steps.meta.outputs.versions }}"
+          patch="${patch##*,}"
+          metadata=$(jq -n \
+            --arg label "${{ steps.meta.outputs.version }}" \
+            --arg patch "$patch" \
+            --rawfile changelog RELEASE_NOTES.md \
+            '{label: $label, stability: "stable", supported_retail_patch: $patch, changelog: $changelog}')
+          curl -sS --fail-with-body --retry 3 --retry-delay 10 \
+            -H "Authorization: Bearer $WAGO_API_TOKEN" \
+            -H "Accept: application/json" \
+            -F "metadata=$metadata" \
+            -F "file=@$ZIP" \
+            "https://addons.wago.io/api/projects/${{ vars.WAGO_PROJECT_ID }}/version"
+
+      - name: Upload to WoWInterface
+        if: steps.meta.outputs.exists == 'false' && env.WOWI_API_TOKEN != '' && vars.WOWI_ADDON_ID != ''
+        run: |
+          curl -sS --fail-with-body --retry 3 --retry-delay 10 \
+            -H "x-api-token: $WOWI_API_TOKEN" \
+            -F "id=${{ vars.WOWI_ADDON_ID }}" \
+            -F "version=${{ steps.meta.outputs.version }}" \
+            -F "compatible=${{ steps.meta.outputs.versions }}" \
+            -F "changelog=<RELEASE_NOTES.md" \
+            -F "archive=No" \
+            -F "updatefile=@$ZIP" \
+            "https://api.wowinterface.com/addons/update"
 
       - name: GitHub Release (tag vX.Y.Z)
         if: steps.meta.outputs.exists == 'false'
