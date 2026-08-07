@@ -15,6 +15,7 @@ local TW, PAD = 260, 10
 local ROW_H = 22
 
 local pendingNameRefresh
+local anchorTooltip   -- forward declaration (Ensure's handlers use it)
 
 local function trackedSets()
   return (ns.charDB and ns.charDB.trackedSets) or {}
@@ -60,7 +61,7 @@ function Tracker.Ensure()
     if btn == "RightButton" then Tracker.OpenMenu(self) end
   end)
   f:SetScript("OnEnter", function(self)
-    ns.Widgets.OwnTooltip(self, "ANCHOR_TOPRIGHT")
+    anchorTooltip(self)
     GameTooltip:AddLine(L["Tracked set"])
     GameTooltip:AddLine(L["Right-click: options"], 0.35, 0.7, 1.0)
     GameTooltip:Show()
@@ -136,7 +137,7 @@ local function ensureRow(i)
   row:SetScript("OnEnter", function(self)
     local p = self.piece
     if not p then return end
-    ns.Widgets.OwnTooltip(self, "ANCHOR_LEFT")
+    anchorTooltip(self)
     if p.itemID and GameTooltip.SetItemByID then GameTooltip:SetItemByID(p.itemID) end
     if self.srcFull and self.srcFull ~= "" then
       GameTooltip:AddLine(self.srcFull, 0.96, 0.72, 0.32, true)
@@ -153,12 +154,54 @@ local function ensureRow(i)
   return row
 end
 
+--- Anchor GameTooltip beside the tracker window (never on top of it),
+--- flipping to the left edge when the screen runs out on the right.
+anchorTooltip = function(owner)
+  local f = Tracker.frame
+  ns.Widgets.OwnTooltip(owner, "ANCHOR_NONE")
+  if f and (f:GetRight() or 0) + 260 < UIParent:GetWidth() then
+    GameTooltip:SetPoint("TOPLEFT", f, "TOPRIGHT", 6, 0)
+  elseif f then
+    GameTooltip:SetPoint("TOPRIGHT", f, "TOPLEFT", -6, 0)
+  end
+end
+
+--- Collapse/expand a section (persisted per character).
+function Tracker.ToggleCollapse(key)
+  ns.charDB.trackerCollapsed = ns.charDB.trackerCollapsed or {}
+  ns.charDB.trackerCollapsed[key] = (not ns.charDB.trackerCollapsed[key]) or nil
+  Tracker.Refresh()
+end
+
+-- shared behaviour of the three header levels: left-click = collapse/expand,
+-- right-click = guide there, tooltip explains both
+local function wireHeader(row)
+  row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  row:SetScript("OnClick", function(self, btn)
+    if btn == "RightButton" then
+      if self.piece then Tracker.GuidePiece(self.trackSetID, self.piece) end
+    elseif self.collapseKey then
+      Tracker.ToggleCollapse(self.collapseKey)
+    end
+  end)
+  row:SetScript("OnEnter", function(self)
+    anchorTooltip(self)
+    GameTooltip:AddLine(self.text:GetText() or "")
+    GameTooltip:AddLine(L["Click: collapse or expand"], 0.35, 0.7, 1.0)
+    GameTooltip:AddLine(L["Right-click: set a waypoint"], 0.35, 0.7, 1.0)
+    GameTooltip:Show()
+  end)
+  row:SetScript("OnLeave", GameTooltip_Hide)
+end
+
 -- per-set header row (name + progress + its own untrack button)
 local function ensureSetRow(i)
   local row = Tracker.setRows[i]
   if row then return row end
-  row = CreateFrame("Frame", nil, Tracker.frame)
+  row = CreateFrame("Button", nil, Tracker.frame)
   row:SetSize(TW - PAD * 2, 20)
+  row:SetHighlightTexture("Interface\\Buttons\\WHITE8x8")
+  row:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.05)
   row.text = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   row.text:SetPoint("LEFT", 0, 0)
   row.text:SetPoint("RIGHT", row, "RIGHT", -52, 0)
@@ -174,11 +217,12 @@ local function ensureSetRow(i)
     local parent = self:GetParent()
     if parent.trackSetID then Tracker.Remove(parent.trackSetID) end
   end)
+  wireHeader(row)
   Tracker.setRows[i] = row
   return row
 end
 
--- location header rows (clickable: guide to that place) + source label rows
+-- location header rows + source rows (both collapsible, right-click to guide)
 local function ensureLocRow(i)
   local row = Tracker.locRows[i]
   if row then return row end
@@ -193,29 +237,25 @@ local function ensureLocRow(i)
   row.text:SetWordWrap(false)
   row.count = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   row.count:SetPoint("RIGHT", -2, 0)
-  row:SetScript("OnClick", function(self)
-    if self.piece then Tracker.GuidePiece(self.trackSetID, self.piece) end
-  end)
-  row:SetScript("OnEnter", function(self)
-    ns.Widgets.OwnTooltip(self, "ANCHOR_LEFT")
-    GameTooltip:AddLine(self.text:GetText() or "")
-    GameTooltip:AddLine(L["Click to set a waypoint to this piece."], 0.35, 0.7, 1.0)
-    GameTooltip:Show()
-  end)
-  row:SetScript("OnLeave", GameTooltip_Hide)
+  wireHeader(row)
   Tracker.locRows[i] = row
   return row
 end
 
 local function ensureSrcRow(i)
-  local fs = Tracker.srcRows[i]
-  if fs then return fs end
-  fs = Tracker.frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  fs:SetWidth(TW - PAD * 2 - 18)
-  fs:SetJustifyH("LEFT")
-  fs:SetWordWrap(false)
-  Tracker.srcRows[i] = fs
-  return fs
+  local row = Tracker.srcRows[i]
+  if row then return row end
+  row = CreateFrame("Button", nil, Tracker.frame)
+  row:SetSize(TW - PAD * 2 - 18, 15)
+  row:SetHighlightTexture("Interface\\Buttons\\WHITE8x8")
+  row:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.05)
+  row.text = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  row.text:SetAllPoints()
+  row.text:SetJustifyH("LEFT")
+  row.text:SetWordWrap(false)
+  wireHeader(row)
+  Tracker.srcRows[i] = row
+  return row
 end
 
 -- ---------------------------------------------------------------------------
@@ -315,11 +355,18 @@ function Tracker.Refresh()
       local done = t > 0 and n >= t
       if not done then allDone = false end
 
+      local pieces = ns.Pieces.For(setID)
+      local collapsed = ns.charDB.trackerCollapsed or {}
+      local setKey = "s" .. setID
+
       if multi then
         hi = hi + 1
         local sr = ensureSetRow(hi)
         sr.trackSetID = setID
-        sr.text:SetText(W.AMBER .. (info.name or "?") .. "|r")
+        sr.collapseKey = setKey
+        sr.piece = pieces[1]
+        sr.text:SetText(W.AMBER .. (collapsed[setKey] and "+ " or "- ")
+          .. (info.name or "?") .. "|r")
         sr.count:SetText((done and W.GREEN or W.AMBER) .. n .. "/" .. t .. "|r")
         sr:ClearAllPoints()
         sr:SetPoint("TOPLEFT", PAD, y)
@@ -329,7 +376,6 @@ function Tracker.Refresh()
 
       -- hierarchy: location -> source (boss / quest / vendor) -> pieces.
       -- Counts cover ALL pieces; hide-collected only prunes item rows.
-      local pieces = ns.Pieces.For(setID)
       local groups, byLoc = {}, {}
       for _, piece in ipairs(pieces) do
         if not piece.collected and not firstMissing then
@@ -359,12 +405,14 @@ function Tracker.Refresh()
 
       local indent = multi and 8 or 0
       for _, g in ipairs(groups) do
-        if #g.sources > 0 then
+        if #g.sources > 0 and not (multi and collapsed[setKey]) then
+          local locKey = setID .. "|" .. g.title
           li = li + 1
           local lr = ensureLocRow(li)
           lr.piece = g.first
           lr.trackSetID = setID
-          lr.text:SetText(W.AMBER .. g.title .. "|r")
+          lr.collapseKey = locKey
+          lr.text:SetText(W.AMBER .. (collapsed[locKey] and "+ " or "- ") .. g.title .. "|r")
           lr.count:SetText((g.have >= g.total and W.GREEN or W.GREY) .. g.have .. "/" .. g.total .. "|r")
           lr:ClearAllPoints()
           lr:SetPoint("TOPLEFT", PAD + indent, y)
@@ -372,16 +420,22 @@ function Tracker.Refresh()
           y = y - 18
 
           for _, s in ipairs(g.sources) do
-            if s.title and s.title ~= "" then
+            local srcCollapsed = false
+            if s.title and s.title ~= "" and not collapsed[locKey] then
+              local srcKey = locKey .. "|" .. s.title
+              srcCollapsed = collapsed[srcKey] or false
               si = si + 1
               local sr2 = ensureSrcRow(si)
-              sr2:SetText(W.GREY .. s.title .. "|r")
+              sr2.trackSetID = setID
+              sr2.collapseKey = srcKey
+              sr2.piece = s.pieces[1]
+              sr2.text:SetText(W.GREY .. (srcCollapsed and "+ " or "- ") .. s.title .. "|r")
               sr2:ClearAllPoints()
               sr2:SetPoint("TOPLEFT", PAD + indent + 10, y)
               sr2:Show()
               y = y - 15
             end
-            for _, piece in ipairs(s.pieces) do
+            for _, piece in ipairs((collapsed[locKey] or srcCollapsed) and {} or s.pieces) do
               shown = shown + 1
               local row = ensureRow(shown)
               row.piece = piece
