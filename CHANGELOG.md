@@ -4,6 +4,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-08-07
+
+First full release.
+
+### Added
+- **Set tracker**: a compact, movable window independent from the browser
+  (the "Track" button replaces "Try on" — the preview pane covers it). It
+  shows each tracked set as a collapsible tree — location > boss/quest/vendor
+  > pieces — with per-level progress counters. Track several sets at once
+  (right-click the Track button → "Add to the current tracking", per-set ×
+  to remove). Click a header to collapse it, right-click to set a waypoint
+  there, click a piece to waypoint to it. Options on right-click: hide
+  collected pieces, auto-guide to the next missing piece (re-points as you
+  loot), lock position. State persists per character; the window refreshes on
+  every collection change even with the main window closed. `/esc track`.
+- `/esc lang`: force the addon texts to English (game data stays in the
+  client language).
+
+### Changed
+- Guidance overhaul: every instance a set drops in is a guide target (pieces
+  dropping in several places — WotLK tiers in Naxxramas AND Vault of
+  Archavon — count everywhere); left-click goes to the most-missing one,
+  right-click lists them all. The waypoint and arrow now survive closing the
+  main window (the arrow's right-click menu gains a Close entry). With
+  FarstriderLib, trails re-route automatically on zone changes and no longer
+  place the Blizzard map pin (arrow only).
+- The preview model loads the character bare (no more equipped weapon/shield
+  bleeding into the preview) and reliably dresses at login.
+
+### Fixed
+- The list scrolls to the restored selection after a reload.
+- Tracker tooltips anchor beside the window instead of covering it; the
+  empty-state text no longer overlaps collapsed headers.
+- The generator's entrance harvest prefers zone maps (continent coordinates
+  were too coarse for waypoints).
+
 ## [0.2.0] - 2026-08-07
 
 ### Added

@@ -2,7 +2,7 @@
 ## Title: EasySetCollection
 ## Notes: Transmog set collection browser with per-piece sources and farm guidance
 ## Author: JeromeM
-## Version: 0.2.0
+## Version: 1.0.0
 ## SavedVariables: EasySetCollectionDB, EasySetCollectionGen
 ## SavedVariablesPerCharacter: EasySetCollectionCharDB
 ## OptionalDeps: FarstriderLib
