@@ -112,6 +112,7 @@ local function queueRefresh()
     if ns.Pieces then ns.Pieces.WipeProgressCache() end
     -- lockout verdicts depend on the missing counts: recompute them too
     if ns.Lockouts then ns.Lockouts.InvalidateSets() end
+    if ns.Assist and ns.Assist.Invalidate then ns.Assist.Invalidate() end
     if ns.UI and ns.UI.RefreshAll then ns.UI.RefreshAll() end
     -- the tracker lives outside the main window: refresh it even when hidden
     if ns.Tracker and ns.Tracker.Refresh then ns.Tracker.Refresh() end

@@ -114,6 +114,69 @@ function Assist.MissingHere(jid)
   return out
 end
 
+-- --- boss tooltips ----------------------------------------------------------
+
+local bossCache   -- { jid, byBoss = { [boss name lower] = { entry, … } } }
+
+--- Drop the boss→pieces cache (collection changed, or new instance).
+function Assist.Invalidate()
+  bossCache = nil
+end
+
+--- The missing pieces a boss (by localized name) still holds in the current
+--- instance — nil outside instances / for non-boss units / while loading.
+function Assist.BossPieces(name)
+  if not name then return nil end
+  local jid = currentJid()
+  if not jid then return nil end
+  if not bossCache or bossCache.jid ~= jid then
+    local list = Assist.MissingHere(jid)
+    if not list then return nil end   -- catalog not ready: don't cache
+    local byBoss = {}
+    for _, e in ipairs(list) do
+      if e.boss then
+        local key = e.boss:lower()
+        byBoss[key] = byBoss[key] or {}
+        byBoss[key][#byBoss[key] + 1] = e
+      end
+    end
+    bossCache = { jid = jid, byBoss = byBoss }
+  end
+  return bossCache.byBoss[name:lower()]
+end
+
+--- Append the missing pieces to a boss unit tooltip (joined by localized
+--- name — multi-NPC council encounters only match the name-bearing one).
+local function decorateUnitTooltip(tooltip)
+  if tooltip ~= GameTooltip then return end
+  if not (ns.db and ns.db.assist and ns.db.assist.enabled) then return end
+  if not IsInInstance() then return end
+  local _, unit = tooltip:GetUnit()
+  local name = unit and UnitName(unit)
+  local entries = name and Assist.BossPieces(name)
+  if not entries then return end
+  tooltip:AddLine(" ")
+  tooltip:AddLine("|cfff0a94a" .. L["Missing set pieces:"] .. "|r")
+  local shown = math.min(#entries, 6)
+  for i = 1, shown do
+    local e = entries[i]
+    tooltip:AddDoubleLine(e.pieceName or "?", e.setName or "",
+      0.91, 0.91, 0.93, 0.54, 0.54, 0.54)
+  end
+  if #entries > shown then
+    tooltip:AddLine(string.format(L["(+%d more pieces)"], #entries - shown),
+      0.54, 0.54, 0.54)
+  end
+  tooltip:Show()
+end
+
+if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall
+   and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Unit then
+  TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip)
+    pcall(decorateUnitTooltip, tooltip)
+  end)
+end
+
 --- Entering-world / zone-change hook: announce once per instance visit.
 function Assist.Check()
   if not (ns.db and ns.db.assist and ns.db.assist.enabled) then return end

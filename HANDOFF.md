@@ -60,7 +60,11 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
   class's incomplete groups through Sources.PieceInstanceSet (multi-drop) and
   PieceEncounterIn; announces once per visit (lastJid) via UI.NotifyAssist
   (silent toast, title override) + a boss-by-boss chat list. `db.assist.enabled`
-  toggle in Notifications.
+  toggle in Notifications (+ `.toast` for the toast alone). Also decorates boss
+  unit tooltips in-instance (TooltipDataProcessor Unit post-call, joined by
+  localized encounter name — council multi-NPC fights only match the
+  name-bearer; cache per jid, invalidated with the collection), and feeds
+  UI.Show's open-on-current-instance selection (BestGroupHere).
 - `Modules/Filters.lua` — the filter/sort pipeline (single O(#groups) pass).
 - `Navigation/*` — the waypoint/arrow/routing stack. `Waypoint.lua`:
   `ns.EntranceForInstance(jid)` (live `GetDungeonEntrancesForMap` over override
