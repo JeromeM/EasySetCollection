@@ -496,7 +496,9 @@ function Tracker.Refresh()
     f.count:SetText("")
   end
 
-  if shown == 0 then
+  -- truly empty only when NOTHING rendered — collapsed sections still show
+  -- their headers, which used to get overlapped by this text
+  if shown == 0 and li == 0 and hi == 0 then
     f.empty:SetText(allDone and (W.GREEN .. L["Set complete!"] .. "|r")
       or (W.GREY .. L["Loading the collection..."] .. "|r"))
     f.empty:Show()
