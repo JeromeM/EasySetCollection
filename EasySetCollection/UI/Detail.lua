@@ -423,8 +423,9 @@ paintPieceRow = function(row, piece, setID)
   local bits = {}
   if slot ~= "" then bits[#bits + 1] = slot end
   if srcText and srcText ~= "" then bits[#bits + 1] = srcText end
-  row.srcFull = table.concat(bits, " · ")   -- untruncated copy for the tooltip
-  row.src:SetText(W.GREY .. row.srcFull .. "|r")
+  row.src:SetText(W.GREY .. table.concat(bits, " · ") .. "|r")
+  -- tooltip copy: the source only — the item tooltip already names the slot
+  row.srcFull = srcText or ""
   row:SetAlpha(hidden and 0.65 or (piece.collected and 1 or 0.8))
 end
 
