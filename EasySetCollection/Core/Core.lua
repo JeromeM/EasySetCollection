@@ -92,6 +92,7 @@ f:RegisterEvent("TRANSMOG_COLLECTION_SOURCE_ADDED")
 f:RegisterEvent("TRANSMOG_COLLECTION_SOURCE_REMOVED")
 f:RegisterEvent("TRANSMOG_SETS_UPDATE_FAVORITE")
 f:RegisterEvent("TRANSMOG_COLLECTION_ITEM_UPDATE")
+f:RegisterEvent("QUEST_DATA_LOAD_RESULT")
 f:SetScript("OnEvent", function(_, event, arg1)
   if event == "ADDON_LOADED" then
     if arg1 == ADDON then initSavedVars() end
@@ -123,6 +124,13 @@ f:SetScript("OnEvent", function(_, event, arg1)
   elseif event == "TRANSMOG_COLLECTION_ITEM_UPDATE" then
     -- item names/qualities became available: repaint the open details panel only
     if ns.UI and ns.UI.RefreshDetail then ns.UI.RefreshDetail() end
+
+  elseif event == "QUEST_DATA_LOAD_RESULT" then
+    -- a quest title we requested (override questID) is now available
+    if ns.UI then
+      if ns.UI.RefreshList then ns.UI.RefreshList() end
+      if ns.UI.RefreshDetail then ns.UI.RefreshDetail() end
+    end
   end
 end)
 

@@ -34,6 +34,7 @@ L["Click to hide this piece in the preview."] = "Clic pour masquer cette pièce 
 L["Hidden in the preview — click to show it."] = "Masquée dans l'aperçu — clic pour l'afficher."
 L["Shift + click to link in chat"] = "Maj + clic pour lier dans le chat"
 L["Unknown source"] = "Source inconnue"
+L["%s: %s"] = "%s : %s"
 
 -- actions
 L["Guide me"] = "Me guider"

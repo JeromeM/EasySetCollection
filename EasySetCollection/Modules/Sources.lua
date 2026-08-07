@@ -106,6 +106,28 @@ function Sources.InstanceName(jid)
   return jid and ("#" .. jid) or "?"
 end
 
+-- --- quest titles (from hand-authored questID overrides) ----------------------
+
+local questTitleCache = {}   -- [questID] = localized title
+
+--- Localized quest title for a questID; nil while the data loads (the request
+--- is issued here, QUEST_DATA_LOAD_RESULT triggers a repaint — see Core.lua).
+function Sources.QuestTitle(questID)
+  if not questID then return nil end
+  local cached = questTitleCache[questID]
+  if cached then return cached end
+  local title = C_QuestLog and C_QuestLog.GetTitleForQuestID
+    and C_QuestLog.GetTitleForQuestID(questID)
+  if title and title ~= "" then
+    questTitleCache[questID] = title
+    return title
+  end
+  if C_QuestLog and C_QuestLog.RequestLoadQuestByID then
+    pcall(C_QuestLog.RequestLoadQuestByID, questID)
+  end
+  return nil
+end
+
 -- --- per-piece resolution ---------------------------------------------------
 
 --- The instance a piece drops in: baked ID first, live name-match fallback.
@@ -151,6 +173,18 @@ function Sources.PieceSourceText(setID, piece)
     end
     local jid = Sources.PieceInstance(setID, piece)
     if jid then return Sources.InstanceName(jid) end
+  end
+  -- hand-authored enrichments: the set's quest title / vendor name
+  local ov = overrideFor(setID)
+  if ov then
+    if piece.sourceType == ns.SRC.QUEST and ov.questID then
+      local title = Sources.QuestTitle(ov.questID)
+      if title then
+        return string.format(L["%s: %s"], Sources.SourceLabel(piece.sourceType), title)
+      end
+    elseif piece.sourceType == ns.SRC.VENDOR and ov.npc then
+      return string.format(L["%s: %s"], Sources.SourceLabel(piece.sourceType), L[ov.npc])
+    end
   end
   return Sources.SourceLabel(piece.sourceType)
 end
@@ -228,17 +262,27 @@ function Sources.LocationLabel(g)
   local cached = locCache[g.baseSetID]
   if cached then return cached end
   local label
+  local nocache = false
 
   local ov = EasySetCollectionOverrides and EasySetCollectionOverrides.sets
     and EasySetCollectionOverrides.sets[g.baseSetID]
   if ov then
     if ov.j then
       label = Sources.InstanceName(ov.j)
-    elseif ov.npc then
-      label = L[ov.npc]
-    elseif ov.map and C_Map.GetMapInfo then
-      local info = C_Map.GetMapInfo(ov.map)
-      label = info and info.name
+    else
+      if ov.questID then
+        local title = Sources.QuestTitle(ov.questID)
+        if title then
+          label = title
+        else
+          nocache = true   -- fall back below, upgrade once the title loads
+        end
+      end
+      if not label and ov.npc then label = L[ov.npc] end
+      if not label and ov.map and C_Map.GetMapInfo then
+        local info = C_Map.GetMapInfo(ov.map)
+        label = info and info.name
+      end
     end
   end
 
@@ -341,7 +385,7 @@ function Sources.LocationLabel(g)
     end
   end
 
-  if label then locCache[g.baseSetID] = label end
+  if label and not nocache then locCache[g.baseSetID] = label end
   return label
 end
 
@@ -384,7 +428,8 @@ function Sources.GuideTargets(setID)
       local info = C_Map.GetMapInfo and C_Map.GetMapInfo(ov.map)
       out[#out + 1] = {
         map = ov.map, x = ov.x, y = ov.y, questID = ov.questID,
-        title = (ov.npc and L[ov.npc]) or (info and info.name) or "?",
+        title = (ov.questID and Sources.QuestTitle(ov.questID))
+          or (ov.npc and L[ov.npc]) or (info and info.name) or "?",
       }
     elseif ov.j then
       out[#out + 1] = { jid = ov.j, title = Sources.InstanceName(ov.j), missing = 0 }

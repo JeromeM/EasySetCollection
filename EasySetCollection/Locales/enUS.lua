@@ -36,6 +36,7 @@ L["Click to hide this piece in the preview."] = "Click to hide this piece in the
 L["Hidden in the preview — click to show it."] = "Hidden in the preview — click to show it."
 L["Shift + click to link in chat"] = "Shift + click to link in chat"
 L["Unknown source"] = "Unknown source"
+L["%s: %s"] = "%s: %s"
 
 -- actions
 L["Guide me"] = "Guide me"
