@@ -266,6 +266,23 @@ function UI.Show()
   if ns.db then ns.db.shown = true end
   UI.frame:Show()
   UI.RefreshAll()
+
+  -- opened inside a dungeon/raid: bring the place's most relevant set forward
+  -- (unless the current selection already drops here)
+  if ns.Assist and ns.Assist.CurrentJid then
+    local jid = ns.Assist.CurrentJid()
+    if jid then
+      local cur = ns.SetList.selected and ns.Sets.GroupFor
+        and ns.Sets.GroupFor(ns.SetList.selected) or nil
+      if not (cur and ns.Assist.GroupDropsIn(cur, jid)) then
+        local g = ns.Assist.BestGroupHere(jid)
+        if g then
+          ns.SetList.Select(g)
+          if ns.SetList.ScrollTo then ns.SetList.ScrollTo(g.baseSetID) end
+        end
+      end
+    end
+  end
 end
 
 function UI.Hide()

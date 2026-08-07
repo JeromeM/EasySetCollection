@@ -29,6 +29,55 @@ local function currentJid()
   return name and ns.Sources.InstanceByName(name) or nil
 end
 
+--- Public: the journal instance the player is standing in (nil outdoors).
+function Assist.CurrentJid()
+  return currentJid()
+end
+
+--- Pieces of a group dropping in an instance (counted on its default variant).
+---@return number here, number missing
+local function piecesHere(g, jid)
+  local setID = ns.Sources.DefaultVariant(g) or g.baseSetID
+  local here, missing = 0, 0
+  for _, piece in ipairs(ns.Pieces.For(setID)) do
+    if ns.Sources.PieceInstanceSet(setID, piece)[jid] then
+      here = here + 1
+      if not piece.collected then missing = missing + 1 end
+    end
+  end
+  return here, missing
+end
+
+--- Does a group drop anything in an instance? (used to leave the user's
+--- selection alone when it already belongs here)
+function Assist.GroupDropsIn(g, jid)
+  return (piecesHere(g, jid)) > 0
+end
+
+--- The group to bring forward when opening the window inside an instance:
+--- the class's set with the most missing pieces HERE (most pieces dropping
+--- here as tie-break). Nil when nothing relevant drops here.
+function Assist.BestGroupHere(jid)
+  local cat = ns.Sets.EnsureCatalog()
+  if not cat then return nil end
+  local classID = select(3, UnitClass("player"))
+  local faction = UnitFactionGroup("player")
+  local best, bestMissing, bestHere
+  for _, g in ipairs(cat.order) do
+    if not g.hidden and not g.legacy
+      and (not classID or bit.band(g.classMask or 0, 2 ^ (classID - 1)) ~= 0)
+      and not (g.requiredFaction and faction and g.requiredFaction ~= faction) then
+      local here, missing = piecesHere(g, jid)
+      if here > 0 and (not best
+          or missing > bestMissing
+          or (missing == bestMissing and here > bestHere)) then
+        best, bestMissing, bestHere = g, missing, here
+      end
+    end
+  end
+  return best
+end
+
 --- Missing set pieces (own class, obtainable sets) dropping in an instance,
 --- sorted by boss.
 ---@return table[]?  { boss, pieceName, setName, setID } — nil while the catalog loads
