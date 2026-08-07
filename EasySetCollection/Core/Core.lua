@@ -65,6 +65,17 @@ local function initSavedVars()
   if fl.otherFaction == nil then fl.otherFaction = false end
   if fl.showLegacy == nil then fl.showLegacy = true end
   -- fl.classID stays nil by default: nil = current class, 0 = all classes
+
+  -- `/esc lang`: force the addon chrome to English. The locale files already
+  -- ran (saved variables load after the Lua files), but translations are plain
+  -- entries in ns.L whose metatable falls back to the English keys — wiping
+  -- the table restores English. Game data (sets, items, quests, instances)
+  -- stays in the client language either way.
+  if ns.db.forceEnglish == nil then ns.db.forceEnglish = false end
+  if ns.db.forceEnglish then
+    wipe(ns.L)
+    _G["BINDING_NAME_EASYSETCOLLECTION_TOGGLE"] = ns.L["Open/close the window"]
+  end
 end
 
 --- PLAYER_LOGIN handler: build the UI shell, settings pages and minimap button,
@@ -201,6 +212,12 @@ SlashCmdList.EASYSETCOLLECTION = function(msg)
     ns.db.autoGuide = not ns.db.autoGuide
     ns.Print(ns.db.autoGuide and L["Auto waypoint arrow: ON"] or L["Auto waypoint arrow: OFF"])
 
+  elseif msg == "lang" then
+    ns.db.forceEnglish = not ns.db.forceEnglish
+    ns.Print(ns.db.forceEnglish
+      and L["Addon language: English (type /reload to apply)"]
+      or L["Addon language: client language (type /reload to apply)"])
+
   elseif msg == "debug" then
     -- diagnostics: catalog size, baked-data coverage, current selection
     local nGroups, nSets = ns.Sets.Counts()
@@ -247,6 +264,7 @@ SlashCmdList.EASYSETCOLLECTION = function(msg)
     print("  " .. L["/esc guide — set a waypoint to the selected set"])
     print("  " .. L["/esc minimap — toggle the minimap button"])
     print("  " .. L["/esc arrow — toggle the auto waypoint arrow"])
+    print("  " .. L["/esc lang — toggle English addon texts"])
 
   else
     ns.UI.Toggle()
