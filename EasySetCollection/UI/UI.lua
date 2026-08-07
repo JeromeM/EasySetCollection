@@ -704,18 +704,29 @@ function UI.NotifyNewPiece(sourceID)
   local setIDs = C_TransmogSets.GetSetsContainingSourceID(sourceID)
   if not setIDs or #setIDs == 0 then return end
 
-  -- only name the player's own class's sets unless told otherwise: in legacy
-  -- raids you loot every armor type, and a cloth bracer belongs to another
-  -- class's set — a toast naming that set reads as a bug.
-  if not ns.db.toast.otherClasses then
-    local classBit = 2 ^ (select(3, UnitClass("player")) - 1)
-    local mine = {}
-    for _, id in ipairs(setIDs) do
-      local i = C_TransmogSets.GetSetInfo and C_TransmogSets.GetSetInfo(id)
-      if i and bit.band(i.classMask or 0, classBit) ~= 0 then mine[#mine + 1] = id end
+  -- the player's own class's sets are the ones worth naming: in legacy raids
+  -- you loot every armor type, and a cloth bracer belongs to another class's
+  -- set. A piece belonging ONLY to other classes' sets stays silent unless
+  -- the option says otherwise — and then the toast says whose set it is.
+  local classBit = 2 ^ (select(3, UnitClass("player")) - 1)
+  local totalSets = #setIDs
+  local mine, foreign = {}, {}
+  for _, id in ipairs(setIDs) do
+    local i = C_TransmogSets.GetSetInfo and C_TransmogSets.GetSetInfo(id)
+    if i and bit.band(i.classMask or 0, classBit) ~= 0 then
+      mine[#mine + 1] = id
+    else
+      foreign[#foreign + 1] = id
     end
-    if #mine == 0 then return end
+  end
+  local isForeign = false
+  if #mine > 0 then
     setIDs = mine
+  elseif ns.db.toast.otherClasses and #foreign > 0 then
+    setIDs = foreign
+    isForeign = true
+  else
+    return
   end
   local setID = setIDs[1]
   local info = C_TransmogSets.GetSetInfo and C_TransmogSets.GetSetInfo(setID)
@@ -724,6 +735,16 @@ function UI.NotifyNewPiece(sourceID)
   local baseID = info.baseSetID or info.setID
   local baseInfo = (baseID ~= setID) and C_TransmogSets.GetSetInfo(baseID) or info
   local setName = (baseInfo and baseInfo.name) or info.name or "?"
+
+  -- another class's set: say whose it is
+  if isForeign then
+    local g = ns.Sets.GroupFor and ns.Sets.GroupFor(baseID)
+    if g and g.className then
+      setName = setName .. " — " .. g.className
+    elseif g and g.classCount and g.classCount > 1 then
+      setName = setName .. " — " .. string.format(L["%d classes"], g.classCount)
+    end
+  end
 
   local si = C_TransmogCollection.GetSourceInfo(sourceID)
   local itemID = si and si.itemID
@@ -737,7 +758,7 @@ function UI.NotifyNewPiece(sourceID)
   local function push(pieceName)
     enqueueToast({
       icon = icon,
-      line = buildToastLine(pieceName or "?", setName, n, t, #setIDs - 1),
+      line = buildToastLine(pieceName or "?", setName, n, t, totalSets - 1),
       complete = complete,
     })
   end

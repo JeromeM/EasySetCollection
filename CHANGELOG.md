@@ -33,7 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - The loot toast no longer names another class's set when a looted appearance
   only belongs to one (legacy raids drop every armor type) — it now sticks to
-  your class's sets, with a Notifications option to include the others.
+  your class's sets, with a Notifications option to include the others (the
+  toast then names the class the set belongs to).
 
 ## [1.0.0] - 2026-08-07
 
