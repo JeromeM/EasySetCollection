@@ -188,6 +188,9 @@ function Detail.BuildPreview(f)
   m:SetPoint("TOPLEFT", bg, "TOPLEFT", 2, -2)
   m:SetPoint("BOTTOMRIGHT", bg, "BOTTOMRIGHT", -2, 2)
   m:SetFrameLevel(bg:GetFrameLevel() + 1)
+  -- load the unit WITHOUT its equipment (weapons/shield resisted Undress);
+  -- this is what Blizzard's own wardrobe models use (autodress="false")
+  if m.SetAutoDress then m:SetAutoDress(false) end
   m:EnableMouse(true)
   m:EnableMouseWheel(true)
 
