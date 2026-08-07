@@ -1,0 +1,103 @@
+name: Release
+
+# Publishes ONLY on main (i.e. when a PR from develop is merged), and only when
+# the addon version (## Version in the .toc) is new (no matching git tag yet).
+# A doc-only merge with the same version does nothing.
+#
+# The zip is built by scripts/package.sh — the exact same artifact you get
+# locally (generator stripped, data baked in) — then uploaded to CurseForge and
+# attached to a GitHub Release tagged vX.Y.Z.
+#
+# Required repo config (Settings -> Secrets and variables -> Actions):
+#   Secrets:   CF_API_KEY   (CurseForge API token — without it the CurseForge
+#                            upload is skipped, the GitHub release still happens)
+#   Variables: GAME_VERSIONS (optional, overrides the default list below)
+# and Settings -> Actions -> Workflow permissions: "Read and write".
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # create tags + GitHub releases
+
+env:
+  CF_PROJECT_ID: ""   # CurseForge project id (About This Project page)
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      CF_API_KEY: ${{ secrets.CF_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # need history + tags to detect an already-released version
+          fetch-tags: true
+
+      - name: Resolve version + game patch
+        id: meta
+        run: |
+          git fetch --tags --force --quiet || true   # make sure existing tags are visible
+          toc=EasySetCollection/EasySetCollection.toc
+          v=$(grep -m1 '## Version:'   "$toc" | sed 's/.*:[[:space:]]*//' | tr -d '\r')
+          iface=$(grep -m1 '## Interface:' "$toc" | sed 's/.*:[[:space:]]*//' | tr -d '\r')
+          patch="$((10#$iface/10000)).$((10#$iface/100%100)).$((10#$iface%100))"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "patch=$patch" >> "$GITHUB_OUTPUT"
+          # supported game versions (override with the GAME_VERSIONS repo variable)
+          versions="${{ vars.GAME_VERSIONS }}"
+          [ -n "$versions" ] || versions="12.0.1,12.0.5,12.0.7,12.1.0"
+          echo "versions=$versions" >> "$GITHUB_OUTPUT"
+          if git rev-parse "v$v" >/dev/null 2>&1; then
+            echo "exists=true"  >> "$GITHUB_OUTPUT"
+            echo "Version v$v already tagged — nothing to publish."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build package
+        if: steps.meta.outputs.exists == 'false'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq zip
+          bash scripts/package.sh
+          echo "ZIP=EasySetCollection-${{ steps.meta.outputs.version }}.zip" >> "$GITHUB_ENV"
+
+      - name: Extract changelog notes
+        id: notes
+        if: steps.meta.outputs.exists == 'false'
+        run: |
+          awk -v v="${{ steps.meta.outputs.version }}" '
+            $0 ~ ("^## \\[" v "\\]") {p=1; next}
+            p && /^## \[/ {exit}
+            p {print}
+          ' CHANGELOG.md > RELEASE_NOTES.md
+          [ -s RELEASE_NOTES.md ] || echo "EasySetCollection ${{ steps.meta.outputs.version }}" > RELEASE_NOTES.md
+          {
+            echo "body<<EOF"
+            cat RELEASE_NOTES.md
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload to CurseForge
+        if: steps.meta.outputs.exists == 'false' && env.CF_API_KEY != '' && env.CF_PROJECT_ID != ''
+        uses: itsmeow/curseforge-upload@v3
+        with:
+          token: ${{ secrets.CF_API_KEY }}
+          project_id: ${{ env.CF_PROJECT_ID }}
+          game_endpoint: wow
+          file_path: ${{ env.ZIP }}
+          game_versions: ${{ steps.meta.outputs.versions }}
+          release_type: release
+          display_name: EasySetCollection ${{ steps.meta.outputs.version }}
+          changelog: ${{ steps.notes.outputs.body }}
+          changelog_type: markdown
+
+      - name: GitHub Release (tag vX.Y.Z)
+        if: steps.meta.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.meta.outputs.version }}
+          name: EasySetCollection ${{ steps.meta.outputs.version }}
+          body_path: RELEASE_NOTES.md
+          files: ${{ env.ZIP }}
