@@ -478,11 +478,25 @@ function Sources.GuideTargets(setID)
   end
 
   -- every instance the set drops in is a target (raid/dungeon entrance), even
-  -- when nothing is missing there — missing pieces only drive the priority
+  -- when nothing is missing there — missing pieces only drive the priority.
+  -- A piece can drop in SEVERAL instances (WotLK tiers: Naxxramas AND Vault of
+  -- Archavon), so every drop location counts, not just the resolved-first one.
   local instTargets = {}
   for _, piece in ipairs(ns.Pieces.For(setID)) do
-    local jid = Sources.PieceInstance(setID, piece)
-    if jid then
+    local jids = {}
+    local primary = Sources.PieceInstance(setID, piece)
+    if primary then jids[primary] = true end
+    if piece.sourceType == ns.SRC.BOSS then
+      local drops = dropsFor(piece.sourceID)
+      if drops then
+        local idx = ensureEJIndex()
+        for _, d in ipairs(drops) do
+          local j2 = idx and d.instance and idx[d.instance]
+          if j2 then jids[j2] = true end
+        end
+      end
+    end
+    for jid in pairs(jids) do
       local t = byJid[jid]
       if not t then
         t = { jid = jid, title = Sources.InstanceName(jid), missing = 0, pieces = 0 }
