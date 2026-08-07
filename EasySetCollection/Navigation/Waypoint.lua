@@ -76,13 +76,15 @@ end
 ---@param x number  normalized X coordinate (0-1)
 ---@param y number  normalized Y coordinate (0-1)
 ---@param title string?  label shown on the waypoint / arrow
-function Waypoint.SetTo(mapID, x, y, title)
+---@param noNative boolean?  skip the Blizzard user waypoint (FarstriderLib mode:
+--- the trail re-routes constantly, a map pin per hop is just noise)
+function Waypoint.SetTo(mapID, x, y, title, noNative)
   if not mapID or not x or not y then return end
   Waypoint.Clear()   -- drop our previous one first
 
   -- Native user waypoint for the map + minimap pin. Best-effort: some maps
   -- disallow it (CanSetUserWaypointOnMap == false) — the arrow still guides there.
-  if C_Map and C_Map.SetUserWaypoint and UiMapPoint and UiMapPoint.CreateFromCoordinates then
+  if not noNative and C_Map and C_Map.SetUserWaypoint and UiMapPoint and UiMapPoint.CreateFromCoordinates then
     if not (C_Map.CanSetUserWaypointOnMap and not C_Map.CanSetUserWaypointOnMap(mapID)) then
       C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(mapID, x, y))
       Waypoint._blizzard = true

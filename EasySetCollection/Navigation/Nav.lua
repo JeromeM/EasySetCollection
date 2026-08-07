@@ -45,7 +45,7 @@ function Nav.GuideTo(target)
   if not ok or type(op) ~= "table" or #op == 0 then
     -- present but no route (already there / off-map) -> just point at the target
     ns.Travel.Hide()
-    ns.Waypoint.SetTo(map, x / 100, y / 100, target.title)
+    ns.Waypoint.SetTo(map, x / 100, y / 100, target.title, true)
     Nav.currentLabel = nil
     return true
   end
@@ -73,9 +73,9 @@ function Nav.GuideTo(target)
     -- we always leave a waypoint (never nothing).
     ns.Travel.Hide()
     if step.loc and step.loc.mapId and step.loc.pos then
-      ns.Waypoint.SetTo(step.loc.mapId, step.loc.pos.x, step.loc.pos.y, step.loca or target.title)
+      ns.Waypoint.SetTo(step.loc.mapId, step.loc.pos.x, step.loc.pos.y, step.loca or target.title, true)
     else
-      ns.Waypoint.SetTo(map, x / 100, y / 100, target.title)
+      ns.Waypoint.SetTo(map, x / 100, y / 100, target.title, true)
     end
   end
   Nav.currentLabel = step.loca      -- already-localized instruction for this step
