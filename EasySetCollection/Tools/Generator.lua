@@ -246,12 +246,21 @@ end
 -- rewards against our quest pieces' itemIDs rebuilds the mapping automatically.
 -- Run AFTER /esc gen (it reads the quest pieces from EasySetCollectionGen).
 
-local QSCAN_MAX = 95000              -- highest questID probed
-local QSCAN_BATCH, QSCAN_INTERVAL = 15, 0.1   -- ~150 requests/s
+-- Two async stages per quest (both server round-trips):
+--   1. C_QuestLog.RequestLoadQuestByID -> QUEST_DATA_LOAD_RESULT (quest data)
+--   2. C_TaskQuest.RequestPreloadRewardData -> HaveQuestRewardData (rewards)
+-- Reading rewards right after stage 1 returns nothing — stage 2 is polled.
+
+local QSCAN_MAX = 95000                       -- highest questID probed
+local QSCAN_BATCH, QSCAN_INTERVAL = 10, 0.1   -- ~100 quest-data requests/s
+local QREWARD_INTERVAL = 0.5                  -- reward-readiness poll cadence
+local QREWARD_ATTEMPTS = 10                   -- polls before giving up on a quest
 
 local qscanFrame
 local qscanTargets, qscanFound
-local qscanNext, qscanRunning, qscanTicker, qscanMatched, qscanTotal
+local qscanNext, qscanRunning, qscanTicker, qscanRewardTicker
+local qscanMatched, qscanTotal
+local qscanPending                            -- { {q = questID, a = attempts}, ... }
 
 local function qscanReadRewards(questID)
   local function check(itemID)
@@ -274,20 +283,18 @@ end
 
 local function qscanFinish()
   if qscanTicker then qscanTicker:Cancel() end
-  -- small grace period for the last in-flight results
-  C_Timer.After(3, function()
-    qscanRunning = false
-    if qscanFrame then qscanFrame:UnregisterAllEvents() end
-    EasySetCollectionGen = EasySetCollectionGen or {}
-    EasySetCollectionGen.questRewards = qscanFound
-    ns.Print(string.format("Quest scan done: |cffffff00%d/%d|r quest items matched to a quest.",
-      qscanMatched, qscanTotal))
-    ns.Print("Now type |cffffff00/reload|r, copy the SavedVariables file, then |cffffff00npm run build|r.")
-  end)
+  if qscanRewardTicker then qscanRewardTicker:Cancel() end
+  qscanRunning = false
+  if qscanFrame then qscanFrame:UnregisterAllEvents() end
+  EasySetCollectionGen = EasySetCollectionGen or {}
+  EasySetCollectionGen.questRewards = qscanFound
+  ns.Print(string.format("Quest scan done: |cffffff00%d/%d|r quest items matched to a quest.",
+    qscanMatched, qscanTotal))
+  ns.Print("Now type |cffffff00/reload|r (also clears the quest cache the scan piled up), copy the SavedVariables file, then |cffffff00npm run build|r.")
 end
 
 --- `/esc genquests`: sweep every quest's rewards and match them against the
---- quest pieces of the last `/esc gen` export (~10-15 min, early exit when
+--- quest pieces of the last `/esc gen` export (~15-20 min, early exit when
 --- everything is matched).
 function Gen.GenerateQuests()
   if qscanRunning then ns.Print("Quest scan already running…") return end
@@ -316,14 +323,39 @@ function Gen.GenerateQuests()
   end
 
   qscanRunning, qscanNext, qscanMatched = true, 1, 0
+  qscanPending = {}
+
+  -- stage 1 result: quest data loaded -> ask for its reward data and queue it
   qscanFrame = qscanFrame or CreateFrame("Frame")
   qscanFrame:RegisterEvent("QUEST_DATA_LOAD_RESULT")
   qscanFrame:SetScript("OnEvent", function(_, _, questID, success)
-    if qscanRunning and success and questID then qscanReadRewards(questID) end
+    if not (qscanRunning and success and questID) then return end
+    if C_TaskQuest and C_TaskQuest.RequestPreloadRewardData then
+      pcall(C_TaskQuest.RequestPreloadRewardData, questID)
+    end
+    qscanPending[#qscanPending + 1] = { q = questID, a = 0 }
+  end)
+
+  -- stage 2: poll the queued quests until their reward data is available
+  qscanRewardTicker = C_Timer.NewTicker(QREWARD_INTERVAL, function()
+    local remaining = {}
+    for _, e in ipairs(qscanPending) do
+      if not HaveQuestRewardData or HaveQuestRewardData(e.q) then
+        qscanReadRewards(e.q)
+      else
+        e.a = e.a + 1
+        if e.a < QREWARD_ATTEMPTS then remaining[#remaining + 1] = e end
+      end
+    end
+    qscanPending = remaining
+    if qscanRunning and (qscanMatched >= qscanTotal
+        or (qscanNext > QSCAN_MAX and #qscanPending == 0)) then
+      qscanFinish()
+    end
   end)
 
   ns.Print(string.format(
-    "Scanning quests 1..%d for %d quest-reward items (~10-15 min, stay logged in)…",
+    "Scanning quests 1..%d for %d quest-reward items (~15-20 min, stay logged in)…",
     QSCAN_MAX, qscanTotal))
   qscanTicker = C_Timer.NewTicker(QSCAN_INTERVAL, function()
     for _ = 1, QSCAN_BATCH do
@@ -332,11 +364,11 @@ function Gen.GenerateQuests()
       qscanNext = qscanNext + 1
     end
     if qscanNext % 10000 <= QSCAN_BATCH then
-      ns.Print(string.format("… quest %d/%d — %d/%d items matched",
-        math.min(qscanNext, QSCAN_MAX), QSCAN_MAX, qscanMatched, qscanTotal))
+      ns.Print(string.format("… quest %d/%d — %d/%d items matched (%d awaiting reward data)",
+        math.min(qscanNext, QSCAN_MAX), QSCAN_MAX, qscanMatched, qscanTotal, #qscanPending))
     end
-    if qscanNext > QSCAN_MAX or qscanMatched >= qscanTotal then
-      qscanFinish()
+    if qscanNext > QSCAN_MAX and qscanTicker then
+      qscanTicker:Cancel()   -- stage 2 keeps draining and finishes the scan
     end
   end)
 end
