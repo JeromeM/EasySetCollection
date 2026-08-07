@@ -212,6 +212,44 @@ function Sources.PieceSourceText(setID, piece)
   return Sources.SourceLabel(piece.sourceType)
 end
 
+--- Hierarchy parts of a piece for the tracker tree: the LOCATION (instance
+--- name, or the source kind for non-instance pieces) and the SOURCE inside it
+--- (boss encounter / quest title / vendor name — nil when unknown).
+function Sources.PieceSourceParts(setID, piece)
+  if piece.sourceType == ns.SRC.BOSS then
+    local jid = Sources.PieceInstance(setID, piece)
+    local drops = dropsFor(piece.sourceID)
+    local d
+    if drops then
+      d = drops[1]
+      if jid and #drops > 1 then
+        local want = Sources.InstanceName(jid)
+        for _, cand in ipairs(drops) do
+          if cand.instance == want then d = cand break end
+        end
+      end
+    end
+    local loc = (jid and Sources.InstanceName(jid)) or (d and d.instance)
+    if loc then return loc, d and d.encounter or nil end
+    return Sources.SourceLabel(piece.sourceType), nil
+  elseif piece.sourceType == ns.SRC.QUEST then
+    local ov = overrideFor(setID)
+    local qid = ov and ov.questID
+    if not qid and EasySetCollectionSets then
+      local baked = EasySetCollectionSets[setID]
+      if baked then
+        local p = baked.pieces and baked.pieces[piece.sourceID]
+        qid = (p and p.q) or baked.q
+      end
+    end
+    return Sources.SourceLabel(piece.sourceType), qid and Sources.QuestTitle(qid) or nil
+  elseif piece.sourceType == ns.SRC.VENDOR then
+    local ov = overrideFor(setID)
+    return Sources.SourceLabel(piece.sourceType), (ov and ov.npc and L[ov.npc]) or nil
+  end
+  return Sources.SourceLabel(piece.sourceType), nil
+end
+
 -- --- group classification (used at catalog build) ----------------------------
 
 local CT_PRIORITY = { "raid", "dungeon", "quest", "vendor", "world", "achievement", "profession", "tradingpost" }

@@ -139,6 +139,48 @@ local function ensureRow(i)
   return row
 end
 
+-- location header rows (clickable: guide to that place) + source label rows
+local function ensureLocRow(i)
+  Tracker.locRows = Tracker.locRows or {}
+  local row = Tracker.locRows[i]
+  if row then return row end
+  row = CreateFrame("Button", nil, Tracker.frame)
+  row:SetSize(TW - PAD * 2, 18)
+  row:SetHighlightTexture("Interface\\Buttons\\WHITE8x8")
+  row:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.05)
+  row.text = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  row.text:SetPoint("LEFT", 0, 0)
+  row.text:SetPoint("RIGHT", row, "RIGHT", -34, 0)
+  row.text:SetJustifyH("LEFT")
+  row.text:SetWordWrap(false)
+  row.count = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  row.count:SetPoint("RIGHT", -2, 0)
+  row:SetScript("OnClick", function(self)
+    if self.piece then Tracker.GuidePiece(self.piece) end
+  end)
+  row:SetScript("OnEnter", function(self)
+    ns.Widgets.OwnTooltip(self, "ANCHOR_LEFT")
+    GameTooltip:AddLine(self.text:GetText() or "")
+    GameTooltip:AddLine(L["Click to set a waypoint to this piece."], 0.35, 0.7, 1.0)
+    GameTooltip:Show()
+  end)
+  row:SetScript("OnLeave", GameTooltip_Hide)
+  Tracker.locRows[i] = row
+  return row
+end
+
+local function ensureSrcRow(i)
+  Tracker.srcRows = Tracker.srcRows or {}
+  local fs = Tracker.srcRows[i]
+  if fs then return fs end
+  fs = Tracker.frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+  fs:SetWidth(TW - PAD * 2 - 10)
+  fs:SetJustifyH("LEFT")
+  fs:SetWordWrap(false)
+  Tracker.srcRows[i] = fs
+  return fs
+end
+
 -- ---------------------------------------------------------------------------
 -- tracking state
 -- ---------------------------------------------------------------------------
@@ -209,51 +251,104 @@ function Tracker.Refresh()
 
   local pieces = ns.Pieces.For(setID)
   local y = -34
-  local shown = 0
   local firstMissing
 
+  -- hierarchy: location -> source (boss / quest / vendor) -> pieces.
+  -- Counts cover ALL pieces; the hide-collected option only prunes item rows.
+  local groups, byLoc = {}, {}
   for _, piece in ipairs(pieces) do
     if not piece.collected and not firstMissing then firstMissing = piece end
+    local loc, src = ns.Sources.PieceSourceParts(setID, piece)
+    loc = loc or "?"
+    local g = byLoc[loc]
+    if not g then
+      g = { title = loc, sources = {}, bySrc = {}, have = 0, total = 0, first = piece }
+      byLoc[loc] = g
+      groups[#groups + 1] = g
+    end
+    g.total = g.total + 1
+    if piece.collected then g.have = g.have + 1 end
     if not (opts.hideCollected and piece.collected) then
-      shown = shown + 1
-      local row = ensureRow(shown)
-      row.piece = piece
-      row.srcFull = ns.Sources.PieceSourceText(setID, piece) or ""
+      local skey = src or ""
+      local s = g.bySrc[skey]
+      if not s then
+        s = { title = src, pieces = {} }
+        g.bySrc[skey] = s
+        g.sources[#g.sources + 1] = s
+      end
+      s.pieces[#s.pieces + 1] = piece
+    end
+  end
 
-      local icon = piece.itemID and C_Item.GetItemIconByID and C_Item.GetItemIconByID(piece.itemID)
-      row.icon:SetTexture(icon or "Interface\\Icons\\INV_Misc_QuestionMark")
-      row.icon:SetDesaturated(not piece.collected)
-      row.iconFrame:SetBackdropBorderColor(
-        piece.collected and W.C_GREEN[1] or 0.45,
-        piece.collected and W.C_GREEN[2] or 0.45,
-        piece.collected and W.C_GREEN[3] or 0.5, 0.9)
+  local shown, li, si = 0, 0, 0
+  for _, g in ipairs(groups) do
+    if #g.sources > 0 then
+      li = li + 1
+      local lr = ensureLocRow(li)
+      lr.piece = g.first
+      lr.text:SetText(W.AMBER .. g.title .. "|r")
+      lr.count:SetText((g.have >= g.total and W.GREEN or W.GREY) .. g.have .. "/" .. g.total .. "|r")
+      lr:ClearAllPoints()
+      lr:SetPoint("TOPLEFT", PAD, y)
+      lr:Show()
+      y = y - 18
 
-      local name = piece.name
-      if not name or name == "" then
-        name = "…"
-        if piece.itemID and Item then
-          Item:CreateFromItemID(piece.itemID):ContinueOnItemLoad(function()
-            if pendingNameRefresh then return end
-            pendingNameRefresh = C_Timer.NewTimer(0.1, function()
-              pendingNameRefresh = nil
-              Tracker.Refresh()
-            end)
-          end)
+      for _, s in ipairs(g.sources) do
+        if s.title and s.title ~= "" then
+          si = si + 1
+          local sr = ensureSrcRow(si)
+          sr:SetText(W.GREY .. s.title .. "|r")
+          sr:ClearAllPoints()
+          sr:SetPoint("TOPLEFT", PAD + 10, y)
+          sr:Show()
+          y = y - 15
+        end
+        for _, piece in ipairs(s.pieces) do
+          shown = shown + 1
+          local row = ensureRow(shown)
+          row.piece = piece
+          row.srcFull = ns.Sources.PieceSourceText(setID, piece) or ""
+          row:SetWidth(TW - PAD * 2 - 20)
+
+          local icon = piece.itemID and C_Item.GetItemIconByID and C_Item.GetItemIconByID(piece.itemID)
+          row.icon:SetTexture(icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+          row.icon:SetDesaturated(not piece.collected)
+          row.iconFrame:SetBackdropBorderColor(
+            piece.collected and W.C_GREEN[1] or 0.45,
+            piece.collected and W.C_GREEN[2] or 0.45,
+            piece.collected and W.C_GREEN[3] or 0.5, 0.9)
+
+          local name = piece.name
+          if not name or name == "" then
+            name = "…"
+            if piece.itemID and Item then
+              Item:CreateFromItemID(piece.itemID):ContinueOnItemLoad(function()
+                if pendingNameRefresh then return end
+                pendingNameRefresh = C_Timer.NewTimer(0.1, function()
+                  pendingNameRefresh = nil
+                  Tracker.Refresh()
+                end)
+              end)
+            end
+          end
+          if piece.collected then
+            row.name:SetText(W.GREEN .. name .. "|r")
+          else
+            row.name:SetText(W.WHITE .. name .. "|r")
+          end
+
+          row:ClearAllPoints()
+          row:SetPoint("TOPLEFT", PAD + 20, y)
+          row:Show()
+          y = y - ROW_H
         end
       end
-      if piece.collected then
-        row.name:SetText(W.GREEN .. name .. "|r")
-      else
-        row.name:SetText(W.WHITE .. name .. "|r")
-      end
-
-      row:ClearAllPoints()
-      row:SetPoint("TOPLEFT", PAD, y)
-      row:Show()
-      y = y - ROW_H
+      y = y - 4   -- breathing room between locations
     end
   end
   for i = shown + 1, #Tracker.rows do Tracker.rows[i]:Hide() end
+  for i = li + 1, #(Tracker.locRows or {}) do Tracker.locRows[i]:Hide() end
+  for i = si + 1, #(Tracker.srcRows or {}) do Tracker.srcRows[i]:Hide() end
 
   if shown == 0 then
     f.empty:SetText(done and (W.GREEN .. L["Set complete!"] .. "|r")
