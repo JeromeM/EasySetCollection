@@ -132,11 +132,14 @@ f:SetScript("OnEvent", function(_, event, arg1)
     -- the client re-syncs the whole collection after every loading screen and can
     -- replay SOURCE_ADDED in bursts; suppress the loot toast for a few seconds.
     ns.toastGraceUntil = GetTime() + 10
-    -- FarstriderLib trail: recompute the next hop once the position settles
+    -- FarstriderLib trail: recompute the next hop once the position settles;
+    -- also re-dress the preview model (SetUnit fails during loading screens)
     C_Timer.After(1.5, function()
       if ns.Nav and ns.Nav.lastTarget and ns.Nav.Available() then
         ns.Nav.GuideTo(ns.Nav.lastTarget)
       end
+      if ns.Detail then ns.Detail.previewKey = nil end
+      if ns.UI and ns.UI.RefreshDetail then ns.UI.RefreshDetail() end
     end)
 
   elseif event == "ZONE_CHANGED_NEW_AREA" then

@@ -260,6 +260,21 @@ function Detail.UpdatePreview(force)
   m:SetRotation(m._rot or 0)
   if m.SetCamDistanceScale then m:SetCamDistanceScale(m._zoom or 1) end
   dressModel(m)   -- also re-applied by OnModelLoaded once the model is ready
+
+  -- login robustness: SetUnit fails silently before the world is fully ready
+  -- (and then OnModelLoaded never fires) — retry while no model is loaded
+  local ok, fid = pcall(m.GetModelFileID, m)
+  if (not ok or not fid or fid == 0) and (m._retries or 0) < 10 then
+    m._retries = (m._retries or 0) + 1
+    C_Timer.After(0.6, function()
+      if m:IsShown() then
+        Detail.previewKey = nil
+        Detail.UpdatePreview()
+      end
+    end)
+  elseif ok and fid and fid ~= 0 then
+    m._retries = 0
+  end
 end
 
 function Detail.HideWidgets()
