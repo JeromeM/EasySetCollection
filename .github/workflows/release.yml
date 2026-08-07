@@ -22,7 +22,7 @@ permissions:
   contents: write   # create tags + GitHub releases
 
 env:
-  CF_PROJECT_ID: ""   # CurseForge project id (About This Project page)
+  CF_PROJECT_ID: "1642958"   # CurseForge project id (About This Project page)
 
 jobs:
   release:
