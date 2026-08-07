@@ -11,9 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   miss still drop shows a toast with the count and prints the detail — boss,
   piece, set — in the chat frame, once per visit. Toggle in Options →
   Notifications (the toast independently of the announcement). Opening the
-  window inside an instance selects the place's most relevant set, and boss
-  tooltips list the missing pieces that boss still holds. The Track button's
-  tooltip now mentions its right-click.
+  window inside an instance selects the place's most relevant set. The Track
+  button's tooltip now mentions its right-click.
 - **Suggest**: a button in the window header (and `/esc suggest`) that picks
   the closest incomplete set you can still farm this week — instance entrances
   are ranked by real distance on your continent, sets whose sources are fully

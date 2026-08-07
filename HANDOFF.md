@@ -60,11 +60,12 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
   class's incomplete groups through Sources.PieceInstanceSet (multi-drop) and
   PieceEncounterIn; announces once per visit (lastJid) via UI.NotifyAssist
   (silent toast, title override) + a boss-by-boss chat list. `db.assist.enabled`
-  toggle in Notifications (+ `.toast` for the toast alone). Also decorates boss
-  unit tooltips in-instance (TooltipDataProcessor Unit post-call, joined by
-  localized encounter name — council multi-NPC fights only match the
-  name-bearer; cache per jid, invalidated with the collection), and feeds
-  UI.Show's open-on-current-instance selection (BestGroupHere).
+  toggle in Notifications (+ `.toast` for the toast alone). Feeds UI.Show's
+  open-on-current-instance selection (BestGroupHere). Boss TOOLTIPS (unit and
+  Encounter Journal) were attempted and dropped on 2026-08-07 — unit names are
+  secret values in instances (gotcha below) and the EJ boss-button hover hook
+  (EncounterJournal_DisplayInstance + EncounterJournalBossButton<i>) never
+  fired on 12.x; the EJ frame structure needs in-game inspection first.
 - `Modules/Filters.lua` — the filter/sort pipeline (single O(#groups) pass).
 - `Navigation/*` — the waypoint/arrow/routing stack. `Waypoint.lua`:
   `ns.EntranceForInstance(jid)` (live `GetDungeonEntrancesForMap` over override
@@ -101,6 +102,14 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
 - `Core/Core.lua` — saved vars defaults, events, slash `/esc`.
 
 ## API gotchas (verified against wow-ui-source / wiki during design)
+
+- **12.x SECRET VALUES (verified in game 2026-08-07)**: inside instances, unit
+  NAMES reach addons as secret strings by every path (GameTooltip:GetUnit,
+  UnitName, C_TooltipInfo lines) — any index/compare in tainted code throws
+  "attempt to index … a secret string value". Guard with `issecretvalue()`.
+  Consequence: boss unit tooltips cannot be matched by name — any future
+  boss-tooltip feature must key on IDs (GUID npcID, if readable) with baked
+  npc→encounter data, or decorate our own UI instead.
 
 - `TransmogSetPrimaryAppearanceInfo.appearanceID` **is a sourceID**
   (itemModifiedAppearanceID) despite its name — Blizzard's own
