@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-08-07
+
+### Added
+- Quest sets now show the actual quest name (localized), in the list rows and
+  on each piece's source line. The item→quest mapping is rebuilt automatically:
+  an in-game quest-reward sweep (`/esc genquests`, dev-only) merged at build
+  time with a Wowhead import — 663 of 1260 quest pieces covered; manual
+  `questID` overrides still take precedence and can fill the gaps.
+- Piece tooltips include the full, untruncated source line (long boss/instance
+  names truncate in the row).
+
+### Changed
+- The default variant of a set is now deterministic: dungeon variants first
+  (mixed dungeon/vendor groups), then Normal difficulty (10-player before
+  25-player, Mythic and LFR last), then the base set — instead of
+  best-progress.
+- The list's location label and the detail pane's piece rows use the same
+  per-piece resolution on the same default variant — they can no longer
+  disagree (e.g. "Karazhan" in the list vs "Gruul's Lair" on the pieces).
+
+### Fixed
+- Tooltips no longer inherit the window's scale (they rendered bigger or
+  smaller than the rest of the UI depending on the window-size setting).
+- Hint-only tooltips (Guide me, preview) start with a proper title line
+  instead of an oversized first sentence.
+
 ## [0.1.0] - 2026-08-07
 
 ### Added
