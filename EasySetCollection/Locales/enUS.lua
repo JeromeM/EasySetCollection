@@ -52,6 +52,7 @@ L["Stop tracking"] = "Stop tracking"
 L["Tracked set"] = "Tracked set"
 L["Tracked sets"] = "Tracked sets"
 L["Add to the current tracking"] = "Add to the current tracking"
+L["Right-click: add to the current tracking"] = "Right-click: add to the current tracking"
 L["Follow this set in a small movable window: pieces, progress, and a waypoint to the next missing one."] = "Follow this set in a small movable window: pieces, progress, and a waypoint to the next missing one."
 L["Hide collected pieces"] = "Hide collected pieces"
 L["Auto-guide to the next missing piece"] = "Auto-guide to the next missing piece"
@@ -102,6 +103,11 @@ L["Pick the closest set you can still farm this week and guide there."] = "Pick 
 L["Right-click: more suggestions"] = "Right-click: more suggestions"
 L["No set to suggest right now."] = "No set to suggest right now."
 L["/esc suggest — guide to the closest farmable set"] = "/esc suggest — guide to the closest farmable set"
+
+-- in-instance assistant
+L["%d set pieces you're missing drop here!"] = "%d set pieces you're missing drop here!"
+L["Announce missing set pieces when entering an instance"] = "Announce missing set pieces when entering an instance"
+L["Show the announcement as a toast (chat is always used)"] = "Show the announcement as a toast (chat is always used)"
 
 -- lockouts
 L["This week"] = "This week"

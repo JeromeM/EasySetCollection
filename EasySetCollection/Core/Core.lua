@@ -41,6 +41,10 @@ local function initSavedVars()
     ns.charDB.trackedSetID = nil
   end
 
+  ns.db.assist = ns.db.assist or {}
+  if ns.db.assist.enabled == nil then ns.db.assist.enabled = true end
+  if ns.db.assist.toast == nil then ns.db.assist.toast = true end
+
   ns.db.tracker = ns.db.tracker or {}
   if ns.db.tracker.hideCollected == nil then ns.db.tracker.hideCollected = false end
   if ns.db.tracker.autoGuide == nil then ns.db.tracker.autoGuide = true end
@@ -139,6 +143,10 @@ f:SetScript("OnEvent", function(_, event, arg1)
     ns.toastGraceUntil = GetTime() + 10
     -- fresh lockout data (the server answers with UPDATE_INSTANCE_INFO)
     if ns.Lockouts then ns.Lockouts.Request() end
+    -- in-instance assistant: announce once the map/position has settled
+    C_Timer.After(3, function()
+      if ns.Assist then ns.Assist.Check() end
+    end)
     -- FarstriderLib trail: recompute the next hop once the position settles;
     -- also re-dress the preview model (SetUnit fails during loading screens)
     C_Timer.After(1.5, function()
@@ -154,6 +162,7 @@ f:SetScript("OnEvent", function(_, event, arg1)
     if ns.Nav and ns.Nav.lastTarget and ns.Nav.Available() then
       ns.Nav.GuideTo(ns.Nav.lastTarget)
     end
+    if ns.Assist then ns.Assist.Check() end
 
   elseif event == "TRANSMOG_COLLECTION_UPDATED" then
     queueRefresh()

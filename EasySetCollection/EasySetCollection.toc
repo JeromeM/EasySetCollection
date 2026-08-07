@@ -19,6 +19,7 @@ Modules\Pieces.lua
 Modules\Sources.lua
 Modules\Lockouts.lua
 Modules\Suggest.lua
+Modules\Assist.lua
 Modules\Filters.lua
 Navigation\Arrow.lua
 Navigation\Waypoint.lua

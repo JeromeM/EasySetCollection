@@ -511,6 +511,20 @@ function UI.BuildSettings()
     function() return ns.db.toast and ns.db.toast.showOtherSets ~= false end,
     function(v) ns.db.toast.showOtherSets = v end)
 
+  boolean(notifCat, "assistEnabled", L["Announce missing set pieces when entering an instance"],
+    function() return ns.db.assist and ns.db.assist.enabled ~= false end,
+    function(v)
+      ns.db.assist = ns.db.assist or {}
+      ns.db.assist.enabled = v
+    end)
+
+  boolean(notifCat, "assistToast", L["Show the announcement as a toast (chat is always used)"],
+    function() return ns.db.assist and ns.db.assist.toast ~= false end,
+    function(v)
+      ns.db.assist = ns.db.assist or {}
+      ns.db.assist.toast = v
+    end)
+
   -- "Test" button: preview the notification with the current settings
   if CreateSettingsButtonInitializer and SettingsPanel and SettingsPanel.GetLayout then
     local initializer = CreateSettingsButtonInitializer(
@@ -574,12 +588,13 @@ showNextToast = function()
   local brd = data.complete and W.C_GREEN or W.C_GOLD_BRD
   p:SetBackdropBorderColor(brd[1], brd[2], brd[3], 1)
   p.icon:SetTexture(data.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
-  local title = data.complete and (W.GREEN .. L["Set complete!"] .. "|r")
-    or (W.AMBER .. L["New set piece!"] .. "|r")
+  local title = data.title
+    or (data.complete and (W.GREEN .. L["Set complete!"] .. "|r")
+    or (W.AMBER .. L["New set piece!"] .. "|r"))
   p.text:SetText(title .. "\n" .. W.WHITE .. (data.line or "") .. "|r")
   p:Show()
 
-  if ns.db.toast.sound and PlaySound and SOUNDKIT then
+  if ns.db.toast.sound and not data.silent and PlaySound and SOUNDKIT then
     pcall(PlaySound, data.complete and SOUNDKIT.UI_LEGENDARY_LOOT_TOAST or SOUNDKIT.UI_EPICLOOT_TOAST)
   end
   if p.timer then p.timer:Cancel() end
@@ -610,6 +625,17 @@ local function buildToastLine(pieceName, setName, n, t, extraSets)
     line = line .. " " .. W.GREY .. string.format(L["(+%d other sets)"], extraSets) .. "|r"
   end
   return line
+end
+
+--- In-instance assistant toast (Modules/Assist.lua): instance name as the
+--- title, missing count as the body. Silent — it's an FYI, not loot.
+function UI.NotifyAssist(title, line, icon)
+  enqueueToast({
+    title = W.AMBER .. (title or "") .. "|r",
+    line = line,
+    icon = icon or "Interface\\Icons\\INV_Misc_Map01",
+    silent = true,
+  })
 end
 
 --- Settings "Test" button: show a sample notification with the current content

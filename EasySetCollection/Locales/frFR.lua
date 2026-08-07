@@ -50,6 +50,7 @@ L["Stop tracking"] = "Ne plus suivre"
 L["Tracked set"] = "Ensemble suivi"
 L["Tracked sets"] = "Ensembles suivis"
 L["Add to the current tracking"] = "Ajouter au suivi existant"
+L["Right-click: add to the current tracking"] = "Clic droit : ajouter au suivi existant"
 L["Follow this set in a small movable window: pieces, progress, and a waypoint to the next missing one."] = "Suit cet ensemble dans une petite fenêtre déplaçable : pièces, progression, et un point de destination vers la prochaine pièce manquante."
 L["Hide collected pieces"] = "Masquer les pièces obtenues"
 L["Auto-guide to the next missing piece"] = "Guider automatiquement vers la prochaine pièce manquante"
@@ -100,6 +101,11 @@ L["Pick the closest set you can still farm this week and guide there."] = "Chois
 L["Right-click: more suggestions"] = "Clic droit : plus de suggestions"
 L["No set to suggest right now."] = "Aucun ensemble à suggérer pour le moment."
 L["/esc suggest — guide to the closest farmable set"] = "/esc suggest — guide vers l'ensemble farmable le plus proche"
+
+-- in-instance assistant
+L["%d set pieces you're missing drop here!"] = "%d pièces d'ensembles qu'il vous manque tombent ici !"
+L["Announce missing set pieces when entering an instance"] = "Annoncer les pièces d'ensembles manquantes en entrant dans une instance"
+L["Show the announcement as a toast (chat is always used)"] = "Afficher l'annonce en notification toast (le chat est toujours utilisé)"
 
 -- lockouts
 L["This week"] = "Cette semaine"

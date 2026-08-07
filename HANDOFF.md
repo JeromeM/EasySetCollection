@@ -55,6 +55,12 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
   distance, the rest by fewest-missing. Go() selects + scrolls the list
   (SetList.ScrollTo) and guides. Footer button (left/right click) + `/esc
   suggest`.
+- `Modules/Assist.lua` — in-instance assistant: on PEW (+3s) / zone change,
+  EJ_GetInstanceForMap resolves where we are; MissingHere(jid) sweeps the
+  class's incomplete groups through Sources.PieceInstanceSet (multi-drop) and
+  PieceEncounterIn; announces once per visit (lastJid) via UI.NotifyAssist
+  (silent toast, title override) + a boss-by-boss chat list. `db.assist.enabled`
+  toggle in Notifications.
 - `Modules/Filters.lua` — the filter/sort pipeline (single O(#groups) pass).
 - `Navigation/*` — the waypoint/arrow/routing stack. `Waypoint.lua`:
   `ns.EntranceForInstance(jid)` (live `GetDungeonEntrancesForMap` over override
