@@ -102,8 +102,24 @@ function Detail.Build(f)
   Detail.trackBtn = W.MakeButton(f, "nav")
   Detail.trackBtn:SetSize(88, 26)
   Detail.trackBtn:SetPoint("LEFT", Detail.guideBtn, "RIGHT", 6, 0)
-  Detail.trackBtn:SetScript("OnClick", function()
-    if Detail.setID and ns.Tracker then ns.Tracker.Toggle(Detail.setID) end
+  Detail.trackBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  Detail.trackBtn:SetScript("OnClick", function(self, mouseButton)
+    if not (Detail.setID and ns.Tracker) then return end
+    if mouseButton == "RightButton" then
+      if MenuUtil and MenuUtil.CreateContextMenu then
+        MenuUtil.CreateContextMenu(self, function(_, root)
+          root:CreateTitle(L["Track"])
+          root:CreateButton(L["Add to the current tracking"],
+            function() ns.Tracker.Add(Detail.setID) end)
+          if ns.Tracker.IsTracked(Detail.setID) then
+            root:CreateButton(L["Stop tracking"],
+              function() ns.Tracker.Remove(Detail.setID) end)
+          end
+        end)
+      end
+    else
+      ns.Tracker.Toggle(Detail.setID)
+    end
   end)
   Detail.trackBtn:SetScript("OnEnter", function(self)
     W.Paint(self, true)
@@ -598,7 +614,7 @@ function Detail.Refresh()
   Detail.guideBtn.arrow:SetShown(#targets > 1)
   W.SetBtn(Detail.guideBtn, #targets > 0)
   Detail.guideBtn:Show()
-  local tracked = ns.charDB and ns.charDB.trackedSetID == setID
+  local tracked = ns.Tracker and ns.Tracker.IsTracked and ns.Tracker.IsTracked(setID)
   Detail.trackBtn._kind = tracked and "primary" or "nav"
   Detail.trackBtn.label:SetText(tracked and L["Stop"] or L["Track"])
   W.Paint(Detail.trackBtn, false)

@@ -1,9 +1,9 @@
--- Tracker.lua — the compact "follow this set" window: a small movable frame,
--- independent from the main window, listing the tracked set's pieces with
--- their collected state. Click a piece to set a waypoint to it; right-click
--- the window for its options (hide collected pieces, auto-guide to the next
--- missing piece, lock). The tracked set persists per character and the window
--- refreshes itself on every collection change.
+-- Tracker.lua — the compact "follow these sets" window: a small movable frame,
+-- independent from the main window, showing each tracked set as a tree:
+-- set > location (clickable: waypoint there) > boss/quest/vendor > pieces.
+-- Several sets can be tracked at once (right-click the Track button to add).
+-- Right-click the window for its options; state persists per character and the
+-- window refreshes itself on every collection change.
 
 local ADDON, ns = ...
 ns.Tracker = ns.Tracker or {}
@@ -15,6 +15,17 @@ local TW, PAD = 260, 10
 local ROW_H = 22
 
 local pendingNameRefresh
+
+local function trackedSets()
+  return (ns.charDB and ns.charDB.trackedSets) or {}
+end
+
+local function isTracked(setID)
+  for _, id in ipairs(trackedSets()) do
+    if id == setID then return true end
+  end
+  return false
+end
 
 -- ---------------------------------------------------------------------------
 -- frame
@@ -90,17 +101,20 @@ function Tracker.Ensure()
   f.empty:SetJustifyH("LEFT")
   f.empty:Hide()
 
-  Tracker.rows = {}
+  Tracker.rows, Tracker.locRows, Tracker.srcRows, Tracker.setRows = {}, {}, {}, {}
   f:Hide()
   return f
 end
 
+-- ---------------------------------------------------------------------------
+-- row pools
+-- ---------------------------------------------------------------------------
 local function ensureRow(i)
   local row = Tracker.rows[i]
   if row then return row end
 
   row = CreateFrame("Button", nil, Tracker.frame)
-  row:SetSize(TW - PAD * 2, ROW_H)
+  row:SetSize(TW - PAD * 2 - 20, ROW_H)
   row:SetHighlightTexture("Interface\\Buttons\\WHITE8x8")
   row:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.05)
 
@@ -132,20 +146,44 @@ local function ensureRow(i)
   end)
   row:SetScript("OnLeave", GameTooltip_Hide)
   row:SetScript("OnClick", function(self)
-    if self.piece then Tracker.GuidePiece(self.piece) end
+    if self.piece then Tracker.GuidePiece(self.trackSetID, self.piece) end
   end)
 
   Tracker.rows[i] = row
   return row
 end
 
+-- per-set header row (name + progress + its own untrack button)
+local function ensureSetRow(i)
+  local row = Tracker.setRows[i]
+  if row then return row end
+  row = CreateFrame("Frame", nil, Tracker.frame)
+  row:SetSize(TW - PAD * 2, 20)
+  row.text = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  row.text:SetPoint("LEFT", 0, 0)
+  row.text:SetPoint("RIGHT", row, "RIGHT", -52, 0)
+  row.text:SetJustifyH("LEFT")
+  row.text:SetWordWrap(false)
+  row.count = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  row.count:SetPoint("RIGHT", -20, 0)
+  row.remove = W.MakeButton(row, "nav")
+  row.remove:SetSize(14, 14)
+  row.remove:SetPoint("RIGHT", 0, 0)
+  row.remove.label:SetText("×")
+  row.remove:SetScript("OnClick", function(self)
+    local parent = self:GetParent()
+    if parent.trackSetID then Tracker.Remove(parent.trackSetID) end
+  end)
+  Tracker.setRows[i] = row
+  return row
+end
+
 -- location header rows (clickable: guide to that place) + source label rows
 local function ensureLocRow(i)
-  Tracker.locRows = Tracker.locRows or {}
   local row = Tracker.locRows[i]
   if row then return row end
   row = CreateFrame("Button", nil, Tracker.frame)
-  row:SetSize(TW - PAD * 2, 18)
+  row:SetSize(TW - PAD * 2 - 8, 18)
   row:SetHighlightTexture("Interface\\Buttons\\WHITE8x8")
   row:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.05)
   row.text = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -156,7 +194,7 @@ local function ensureLocRow(i)
   row.count = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   row.count:SetPoint("RIGHT", -2, 0)
   row:SetScript("OnClick", function(self)
-    if self.piece then Tracker.GuidePiece(self.piece) end
+    if self.piece then Tracker.GuidePiece(self.trackSetID, self.piece) end
   end)
   row:SetScript("OnEnter", function(self)
     ns.Widgets.OwnTooltip(self, "ANCHOR_LEFT")
@@ -170,11 +208,10 @@ local function ensureLocRow(i)
 end
 
 local function ensureSrcRow(i)
-  Tracker.srcRows = Tracker.srcRows or {}
   local fs = Tracker.srcRows[i]
   if fs then return fs end
   fs = Tracker.frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  fs:SetWidth(TW - PAD * 2 - 10)
+  fs:SetWidth(TW - PAD * 2 - 18)
   fs:SetJustifyH("LEFT")
   fs:SetWordWrap(false)
   Tracker.srcRows[i] = fs
@@ -184,23 +221,45 @@ end
 -- ---------------------------------------------------------------------------
 -- tracking state
 -- ---------------------------------------------------------------------------
-function Tracker.Toggle(setID)
-  if ns.charDB.trackedSetID == setID then
-    Tracker.Untrack()
-  else
-    Tracker.Track(setID)
-  end
-end
-
-function Tracker.Track(setID)
-  ns.charDB.trackedSetID = setID
+function Tracker.Track(setID)          -- replace: follow only this set
+  ns.charDB.trackedSets = { setID }
   Tracker.lastGuidedJid = nil
   Tracker.Refresh()
   if ns.UI and ns.UI.RefreshDetail then ns.UI.RefreshDetail() end
 end
 
-function Tracker.Untrack()
-  ns.charDB.trackedSetID = nil
+function Tracker.Add(setID)            -- append to the current tracking
+  if not isTracked(setID) then
+    ns.charDB.trackedSets = trackedSets()
+    table.insert(ns.charDB.trackedSets, setID)
+  end
+  Tracker.Refresh()
+  if ns.UI and ns.UI.RefreshDetail then ns.UI.RefreshDetail() end
+end
+
+function Tracker.Remove(setID)
+  local list = trackedSets()
+  for i = #list, 1, -1 do
+    if list[i] == setID then table.remove(list, i) end
+  end
+  if #list == 0 then
+    Tracker.Untrack()
+  else
+    Tracker.Refresh()
+    if ns.UI and ns.UI.RefreshDetail then ns.UI.RefreshDetail() end
+  end
+end
+
+function Tracker.Toggle(setID)
+  if isTracked(setID) then Tracker.Remove(setID) else Tracker.Track(setID) end
+end
+
+function Tracker.IsTracked(setID)
+  return isTracked(setID)
+end
+
+function Tracker.Untrack()             -- stop everything
+  ns.charDB.trackedSets = {}
   Tracker.lastGuidedJid = nil
   if Tracker.frame then Tracker.frame:Hide() end
   if ns.Nav and ns.Nav.StopFollowing then ns.Nav.StopFollowing() end
@@ -209,9 +268,8 @@ function Tracker.Untrack()
   if ns.UI and ns.UI.RefreshDetail then ns.UI.RefreshDetail() end
 end
 
---- Waypoint to one specific piece's instance (or the set's curated target).
-function Tracker.GuidePiece(piece)
-  local setID = ns.charDB.trackedSetID
+--- Waypoint to one specific piece's instance (or its set's curated target).
+function Tracker.GuidePiece(setID, piece)
   if not (setID and piece) then return end
   local target
   local jid = ns.Sources.PieceInstance(setID, piece)
@@ -233,125 +291,159 @@ end
 -- refresh
 -- ---------------------------------------------------------------------------
 function Tracker.Refresh()
-  local setID = ns.charDB and ns.charDB.trackedSetID
-  if not setID then
+  local list = trackedSets()
+  if #list == 0 then
     if Tracker.frame then Tracker.frame:Hide() end
     return
   end
-  local info = C_TransmogSets.GetSetInfo and C_TransmogSets.GetSetInfo(setID)
-  if not info then return end   -- collection not ready: the next event retries
 
   local f = Tracker.Ensure()
   local opts = ns.db.tracker
+  local multi = #list > 1
 
-  f.title:SetText(W.AMBER .. (info.name or "?") .. "|r")
-  local n, t = ns.Pieces.Progress(setID)
-  local done = t > 0 and n >= t
-  f.count:SetText((done and W.GREEN or W.AMBER) .. n .. "/" .. t .. "|r")
-
-  local pieces = ns.Pieces.For(setID)
   local y = -34
-  local firstMissing
+  local shown, li, si, hi = 0, 0, 0, 0
+  local firstMissing        -- { setID = ..., piece = ... }
+  local allDone = true
+  local titleInfo
 
-  -- hierarchy: location -> source (boss / quest / vendor) -> pieces.
-  -- Counts cover ALL pieces; the hide-collected option only prunes item rows.
-  local groups, byLoc = {}, {}
-  for _, piece in ipairs(pieces) do
-    if not piece.collected and not firstMissing then firstMissing = piece end
-    local loc, src = ns.Sources.PieceSourceParts(setID, piece)
-    loc = loc or "?"
-    local g = byLoc[loc]
-    if not g then
-      g = { title = loc, sources = {}, bySrc = {}, have = 0, total = 0, first = piece }
-      byLoc[loc] = g
-      groups[#groups + 1] = g
-    end
-    g.total = g.total + 1
-    if piece.collected then g.have = g.have + 1 end
-    if not (opts.hideCollected and piece.collected) then
-      local skey = src or ""
-      local s = g.bySrc[skey]
-      if not s then
-        s = { title = src, pieces = {} }
-        g.bySrc[skey] = s
-        g.sources[#g.sources + 1] = s
+  for _, setID in ipairs(list) do
+    local info = C_TransmogSets.GetSetInfo and C_TransmogSets.GetSetInfo(setID)
+    if info then
+      titleInfo = titleInfo or info
+      local n, t = ns.Pieces.Progress(setID)
+      local done = t > 0 and n >= t
+      if not done then allDone = false end
+
+      if multi then
+        hi = hi + 1
+        local sr = ensureSetRow(hi)
+        sr.trackSetID = setID
+        sr.text:SetText(W.AMBER .. (info.name or "?") .. "|r")
+        sr.count:SetText((done and W.GREEN or W.AMBER) .. n .. "/" .. t .. "|r")
+        sr:ClearAllPoints()
+        sr:SetPoint("TOPLEFT", PAD, y)
+        sr:Show()
+        y = y - 21
       end
-      s.pieces[#s.pieces + 1] = piece
-    end
-  end
 
-  local shown, li, si = 0, 0, 0
-  for _, g in ipairs(groups) do
-    if #g.sources > 0 then
-      li = li + 1
-      local lr = ensureLocRow(li)
-      lr.piece = g.first
-      lr.text:SetText(W.AMBER .. g.title .. "|r")
-      lr.count:SetText((g.have >= g.total and W.GREEN or W.GREY) .. g.have .. "/" .. g.total .. "|r")
-      lr:ClearAllPoints()
-      lr:SetPoint("TOPLEFT", PAD, y)
-      lr:Show()
-      y = y - 18
-
-      for _, s in ipairs(g.sources) do
-        if s.title and s.title ~= "" then
-          si = si + 1
-          local sr = ensureSrcRow(si)
-          sr:SetText(W.GREY .. s.title .. "|r")
-          sr:ClearAllPoints()
-          sr:SetPoint("TOPLEFT", PAD + 10, y)
-          sr:Show()
-          y = y - 15
+      -- hierarchy: location -> source (boss / quest / vendor) -> pieces.
+      -- Counts cover ALL pieces; hide-collected only prunes item rows.
+      local pieces = ns.Pieces.For(setID)
+      local groups, byLoc = {}, {}
+      for _, piece in ipairs(pieces) do
+        if not piece.collected and not firstMissing then
+          firstMissing = { setID = setID, piece = piece }
         end
-        for _, piece in ipairs(s.pieces) do
-          shown = shown + 1
-          local row = ensureRow(shown)
-          row.piece = piece
-          row.srcFull = ns.Sources.PieceSourceText(setID, piece) or ""
-          row:SetWidth(TW - PAD * 2 - 20)
+        local loc, src = ns.Sources.PieceSourceParts(setID, piece)
+        loc = loc or "?"
+        local g = byLoc[loc]
+        if not g then
+          g = { title = loc, sources = {}, bySrc = {}, have = 0, total = 0, first = piece }
+          byLoc[loc] = g
+          groups[#groups + 1] = g
+        end
+        g.total = g.total + 1
+        if piece.collected then g.have = g.have + 1 end
+        if not (opts.hideCollected and piece.collected) then
+          local skey = src or ""
+          local s = g.bySrc[skey]
+          if not s then
+            s = { title = src, pieces = {} }
+            g.bySrc[skey] = s
+            g.sources[#g.sources + 1] = s
+          end
+          s.pieces[#s.pieces + 1] = piece
+        end
+      end
 
-          local icon = piece.itemID and C_Item.GetItemIconByID and C_Item.GetItemIconByID(piece.itemID)
-          row.icon:SetTexture(icon or "Interface\\Icons\\INV_Misc_QuestionMark")
-          row.icon:SetDesaturated(not piece.collected)
-          row.iconFrame:SetBackdropBorderColor(
-            piece.collected and W.C_GREEN[1] or 0.45,
-            piece.collected and W.C_GREEN[2] or 0.45,
-            piece.collected and W.C_GREEN[3] or 0.5, 0.9)
+      local indent = multi and 8 or 0
+      for _, g in ipairs(groups) do
+        if #g.sources > 0 then
+          li = li + 1
+          local lr = ensureLocRow(li)
+          lr.piece = g.first
+          lr.trackSetID = setID
+          lr.text:SetText(W.AMBER .. g.title .. "|r")
+          lr.count:SetText((g.have >= g.total and W.GREEN or W.GREY) .. g.have .. "/" .. g.total .. "|r")
+          lr:ClearAllPoints()
+          lr:SetPoint("TOPLEFT", PAD + indent, y)
+          lr:Show()
+          y = y - 18
 
-          local name = piece.name
-          if not name or name == "" then
-            name = "…"
-            if piece.itemID and Item then
-              Item:CreateFromItemID(piece.itemID):ContinueOnItemLoad(function()
-                if pendingNameRefresh then return end
-                pendingNameRefresh = C_Timer.NewTimer(0.1, function()
-                  pendingNameRefresh = nil
-                  Tracker.Refresh()
-                end)
-              end)
+          for _, s in ipairs(g.sources) do
+            if s.title and s.title ~= "" then
+              si = si + 1
+              local sr2 = ensureSrcRow(si)
+              sr2:SetText(W.GREY .. s.title .. "|r")
+              sr2:ClearAllPoints()
+              sr2:SetPoint("TOPLEFT", PAD + indent + 10, y)
+              sr2:Show()
+              y = y - 15
+            end
+            for _, piece in ipairs(s.pieces) do
+              shown = shown + 1
+              local row = ensureRow(shown)
+              row.piece = piece
+              row.trackSetID = setID
+              row.srcFull = ns.Sources.PieceSourceText(setID, piece) or ""
+              row:SetWidth(TW - PAD * 2 - 20 - indent)
+
+              local icon = piece.itemID and C_Item.GetItemIconByID and C_Item.GetItemIconByID(piece.itemID)
+              row.icon:SetTexture(icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+              row.icon:SetDesaturated(not piece.collected)
+              row.iconFrame:SetBackdropBorderColor(
+                piece.collected and W.C_GREEN[1] or 0.45,
+                piece.collected and W.C_GREEN[2] or 0.45,
+                piece.collected and W.C_GREEN[3] or 0.5, 0.9)
+
+              local name = piece.name
+              if not name or name == "" then
+                name = "…"
+                if piece.itemID and Item then
+                  Item:CreateFromItemID(piece.itemID):ContinueOnItemLoad(function()
+                    if pendingNameRefresh then return end
+                    pendingNameRefresh = C_Timer.NewTimer(0.1, function()
+                      pendingNameRefresh = nil
+                      Tracker.Refresh()
+                    end)
+                  end)
+                end
+              end
+              row.name:SetText((piece.collected and W.GREEN or W.WHITE) .. name .. "|r")
+
+              row:ClearAllPoints()
+              row:SetPoint("TOPLEFT", PAD + 20 + indent, y)
+              row:Show()
+              y = y - ROW_H
             end
           end
-          if piece.collected then
-            row.name:SetText(W.GREEN .. name .. "|r")
-          else
-            row.name:SetText(W.WHITE .. name .. "|r")
-          end
-
-          row:ClearAllPoints()
-          row:SetPoint("TOPLEFT", PAD + 20, y)
-          row:Show()
-          y = y - ROW_H
+          y = y - 4   -- breathing room between locations
         end
       end
-      y = y - 4   -- breathing room between locations
+      if multi then y = y - 4 end
     end
   end
   for i = shown + 1, #Tracker.rows do Tracker.rows[i]:Hide() end
-  for i = li + 1, #(Tracker.locRows or {}) do Tracker.locRows[i]:Hide() end
-  for i = si + 1, #(Tracker.srcRows or {}) do Tracker.srcRows[i]:Hide() end
+  for i = li + 1, #Tracker.locRows do Tracker.locRows[i]:Hide() end
+  for i = si + 1, #Tracker.srcRows do Tracker.srcRows[i]:Hide() end
+  for i = hi + 1, #Tracker.setRows do Tracker.setRows[i]:Hide() end
+
+  -- window title: the set's name, or a generic label when tracking several
+  if multi then
+    f.title:SetText(W.WHITE .. L["Tracked sets"] .. "|r")
+    f.count:SetText(W.GREY .. #list .. "|r")
+  elseif titleInfo then
+    f.title:SetText(W.AMBER .. (titleInfo.name or "?") .. "|r")
+    local n, t = ns.Pieces.Progress(list[1])
+    f.count:SetText(((t > 0 and n >= t) and W.GREEN or W.AMBER) .. n .. "/" .. t .. "|r")
+  else
+    f.title:SetText("")
+    f.count:SetText("")
+  end
 
   if shown == 0 then
-    f.empty:SetText(done and (W.GREEN .. L["Set complete!"] .. "|r")
+    f.empty:SetText(allDone and (W.GREEN .. L["Set complete!"] .. "|r")
       or (W.GREY .. L["Loading the collection..."] .. "|r"))
     f.empty:Show()
     y = y - 20
@@ -365,11 +457,11 @@ function Tracker.Refresh()
   -- auto-guide: point at the next missing piece whenever the target changes
   if opts.autoGuide then
     if firstMissing then
-      local jid = ns.Sources.PieceInstance(setID, firstMissing)
+      local jid = ns.Sources.PieceInstance(firstMissing.setID, firstMissing.piece)
       if jid and jid ~= Tracker.lastGuidedJid then
-        Tracker.GuidePiece(firstMissing)
+        Tracker.GuidePiece(firstMissing.setID, firstMissing.piece)
       end
-    elseif done and Tracker.lastGuidedJid then
+    elseif allDone and Tracker.lastGuidedJid then
       Tracker.lastGuidedJid = nil
       if ns.Waypoint then ns.Waypoint.Clear() end
     end

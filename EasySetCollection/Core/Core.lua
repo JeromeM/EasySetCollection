@@ -35,6 +35,12 @@ local function initSavedVars()
   if ns.db.toast.showOtherSets == nil then ns.db.toast.showOtherSets = true end
   if ns.db.preview == nil then ns.db.preview = "full" end   -- "full" | "owned"
 
+  ns.charDB.trackedSets = ns.charDB.trackedSets or {}
+  if ns.charDB.trackedSetID then   -- migrate the old single-set field
+    table.insert(ns.charDB.trackedSets, ns.charDB.trackedSetID)
+    ns.charDB.trackedSetID = nil
+  end
+
   ns.db.tracker = ns.db.tracker or {}
   if ns.db.tracker.hideCollected == nil then ns.db.tracker.hideCollected = false end
   if ns.db.tracker.autoGuide == nil then ns.db.tracker.autoGuide = true end
@@ -71,7 +77,7 @@ local function onLogin()
   if ns.db.shown then ns.UI.Show() end
   -- restore the tracked-set window (it refreshes again once collection data
   -- is ready, via the first TRANSMOG_COLLECTION_UPDATED)
-  if ns.charDB.trackedSetID and ns.Tracker then ns.Tracker.Refresh() end
+  if ns.Tracker and #(ns.charDB.trackedSets or {}) > 0 then ns.Tracker.Refresh() end
 end
 
 -- --- events ---------------------------------------------------------------
