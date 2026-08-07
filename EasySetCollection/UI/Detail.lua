@@ -84,7 +84,8 @@ function Detail.Build(f)
   end)
   Detail.guideBtn:SetScript("OnEnter", function(self)
     W.Paint(self, true)
-    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    ns.Widgets.OwnTooltip(self, "ANCHOR_TOP")
+    GameTooltip:AddLine(L["Guide me"])   -- first line = the tooltip's title font
     if self:IsEnabled() then
       GameTooltip:AddLine(L["Set a waypoint to the place holding the most missing pieces."], 1, 1, 1, true)
       GameTooltip:AddLine(L["Right-click to choose the destination."], 0.35, 0.7, 1.0)
@@ -157,7 +158,8 @@ function Detail.BuildPreview(f)
     if self.SetCamDistanceScale then self:SetCamDistanceScale(self._zoom) end
   end)
   m:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_TOPRIGHT")
+    ns.Widgets.OwnTooltip(self, "ANCHOR_TOPRIGHT")
+    GameTooltip:AddLine(L["Preview"])   -- first line = the tooltip's title font
     GameTooltip:AddLine(L["Drag to rotate, mouse wheel to zoom."], 0.7, 0.7, 0.7, true)
     GameTooltip:Show()
   end)
@@ -241,18 +243,11 @@ end
 -- ---------------------------------------------------------------------------
 -- selection
 -- ---------------------------------------------------------------------------
---- The variant of a group to show by default: the one with the best progress
---- (matches the progress displayed on the group's list row).
+--- The variant of a group to show by default: dungeon variants first (mixed
+--- dungeon/vendor groups), then Normal difficulty (10-player before 25), then
+--- the base set — deterministic, and the same one the list label describes.
 local function pickVariant(g)
-  local best, bestRatio, bestT = nil, -1, 0
-  for _, v in ipairs(g.variants) do
-    local n, t = ns.Pieces.Progress(v.setID)
-    local r = t > 0 and n / t or 0
-    if r > bestRatio or (r == bestRatio and t > bestT) then
-      best, bestRatio, bestT = v.setID, r, t
-    end
-  end
-  return best or (g.variants[1] and g.variants[1].setID)
+  return ns.Sources.DefaultVariant(g) or (g.variants[1] and g.variants[1].setID)
 end
 
 --- Show a group (from a list click): keep the current variant when it belongs
@@ -327,11 +322,15 @@ local function ensurePieceRow(i, f)
   row:SetScript("OnEnter", function(self)
     local p = self.piece
     if not p then return end
-    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    ns.Widgets.OwnTooltip(self, "ANCHOR_LEFT")
     if p.itemID and GameTooltip.SetItemByID then
       GameTooltip:SetItemByID(p.itemID)
     elseif p.name then
       GameTooltip:SetText(p.name)
+    end
+    if self.srcFull and self.srcFull ~= "" then
+      -- the full source line (the row truncates long boss/instance names)
+      GameTooltip:AddLine(self.srcFull, 0.96, 0.72, 0.32, true)
     end
     if p.collected then
       GameTooltip:AddLine(L["Appearance collected"], 0.38, 0.82, 0.43)
@@ -427,6 +426,8 @@ paintPieceRow = function(row, piece, setID)
   if slot ~= "" then bits[#bits + 1] = slot end
   if srcText and srcText ~= "" then bits[#bits + 1] = srcText end
   row.src:SetText(W.GREY .. table.concat(bits, " · ") .. "|r")
+  -- tooltip copy: the source only — the item tooltip already names the slot
+  row.srcFull = srcText or ""
   row:SetAlpha(hidden and 0.65 or (piece.collected and 1 or 0.8))
 end
 
@@ -526,7 +527,7 @@ function Detail.Refresh()
       b:SetPoint("TOPLEFT", X + (i - 1) * (bw + gap), y)
       b:SetScript("OnEnter", function(s)
         W.Paint(s, true)
-        GameTooltip:SetOwner(s, "ANCHOR_TOP")
+        ns.Widgets.OwnTooltip(s, "ANCHOR_TOP")
         GameTooltip:AddLine(label, 1, 1, 1, true)
         local done = vt > 0 and vn >= vt
         GameTooltip:AddLine(vn .. "/" .. vt,

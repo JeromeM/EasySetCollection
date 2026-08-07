@@ -178,6 +178,21 @@ function W.MakeSearchBox(parent, width, placeholder, onChanged)
   return holder
 end
 
+--- Anchor GameTooltip to one of our frames with a NORMALIZED scale. The
+--- tooltip inherits its owner's effective scale, and our window has its own
+--- user-configurable scale — without this, our tooltips render bigger or
+--- smaller than every other tooltip in the UI.
+function W.OwnTooltip(owner, anchor)
+  GameTooltip:SetScale(1)   -- reset any previous correction
+  GameTooltip:SetOwner(owner, anchor)
+  local eff = GameTooltip:GetEffectiveScale()
+  local want = UIParent:GetEffectiveScale()
+  if eff and eff > 0 and want and math.abs(eff - want) > 0.001 then
+    GameTooltip:SetScale(GameTooltip:GetScale() * want / eff)
+  end
+  return GameTooltip
+end
+
 --- Add a small down-pointing dropdown arrow at the right edge of a flat button
 --- (a rotated texture — the ▾ glyph is missing from WoW's fonts and renders as
 --- a placeholder square).

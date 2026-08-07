@@ -62,7 +62,7 @@ function Minimap.Init()
   btn:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
 
   btn:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    ns.Widgets.OwnTooltip(self, "ANCHOR_LEFT")
     GameTooltip:AddLine(L["EasySetCollection"])
     GameTooltip:AddLine(L["Left-click: open/close"], 1, 1, 1)
     GameTooltip:AddLine(L["Right-click: open settings"], 1, 1, 1)

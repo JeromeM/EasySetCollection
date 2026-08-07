@@ -27,6 +27,7 @@ L["Appearance not collected"] = "Apparence non collectée"
 L["Appearance collected from another item."] = "Apparence collectée via un autre objet."
 
 -- preview pane
+L["Preview"] = "Aperçu"
 L["Full set"] = "Ensemble complet"
 L["Owned pieces"] = "Pièces possédées"
 L["Drag to rotate, mouse wheel to zoom."] = "Glisser pour tourner, molette pour zoomer."
@@ -34,6 +35,7 @@ L["Click to hide this piece in the preview."] = "Clic pour masquer cette pièce 
 L["Hidden in the preview — click to show it."] = "Masquée dans l'aperçu — clic pour l'afficher."
 L["Shift + click to link in chat"] = "Maj + clic pour lier dans le chat"
 L["Unknown source"] = "Source inconnue"
+L["%s: %s"] = "%s : %s"
 
 -- actions
 L["Guide me"] = "Me guider"
