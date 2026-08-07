@@ -33,6 +33,7 @@ local function initSavedVars()
   if ns.db.toast.showSet == nil then ns.db.toast.showSet = true end
   if ns.db.toast.showProgress == nil then ns.db.toast.showProgress = true end
   if ns.db.toast.showOtherSets == nil then ns.db.toast.showOtherSets = true end
+  if ns.db.toast.otherClasses == nil then ns.db.toast.otherClasses = false end
   if ns.db.preview == nil then ns.db.preview = "full" end   -- "full" | "owned"
 
   ns.charDB.trackedSets = ns.charDB.trackedSets or {}

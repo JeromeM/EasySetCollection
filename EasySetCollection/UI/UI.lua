@@ -528,6 +528,10 @@ function UI.BuildSettings()
     function() return ns.db.toast and ns.db.toast.showOtherSets ~= false end,
     function(v) ns.db.toast.showOtherSets = v end)
 
+  boolean(notifCat, "toastOtherClasses", L["Also notify for other classes' sets"],
+    function() return ns.db.toast and ns.db.toast.otherClasses == true end,
+    function(v) ns.db.toast.otherClasses = v end)
+
   boolean(notifCat, "assistEnabled", L["Announce missing set pieces when entering an instance"],
     function() return ns.db.assist and ns.db.assist.enabled ~= false end,
     function(v)
@@ -699,6 +703,20 @@ function UI.NotifyNewPiece(sourceID)
 
   local setIDs = C_TransmogSets.GetSetsContainingSourceID(sourceID)
   if not setIDs or #setIDs == 0 then return end
+
+  -- only name the player's own class's sets unless told otherwise: in legacy
+  -- raids you loot every armor type, and a cloth bracer belongs to another
+  -- class's set — a toast naming that set reads as a bug.
+  if not ns.db.toast.otherClasses then
+    local classBit = 2 ^ (select(3, UnitClass("player")) - 1)
+    local mine = {}
+    for _, id in ipairs(setIDs) do
+      local i = C_TransmogSets.GetSetInfo and C_TransmogSets.GetSetInfo(id)
+      if i and bit.band(i.classMask or 0, classBit) ~= 0 then mine[#mine + 1] = id end
+    end
+    if #mine == 0 then return end
+    setIDs = mine
+  end
   local setID = setIDs[1]
   local info = C_TransmogSets.GetSetInfo and C_TransmogSets.GetSetInfo(setID)
   if not info then return end

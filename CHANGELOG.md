@@ -13,9 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Notifications (the toast independently of the announcement). Opening the
   window inside an instance selects the place's most relevant set. The Track
   button's tooltip now mentions its right-click.
-- **Suggest**: a button in the list footer (and `/esc suggest`) that picks the
-  closest incomplete set you can still farm this week — instance entrances are
-  ranked by real distance on your continent, sets whose sources are fully
+- **Suggest**: a button in the window header (and `/esc suggest`) that picks
+  the closest incomplete set you can still farm this week — instance entrances
+  are ranked by real distance on your continent, sets whose sources are fully
   cleared this week are skipped — selects it and guides you there. Right-click
   offers the best suggestions with distance and missing-piece counts.
 - **Weekly lockouts in the browser**: sets whose source instances carry an
@@ -26,6 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   new filter (Extras) hides sets with nothing left to farm this week. Variant
   difficulties are honoured: a Heroic recolor only listens to the Heroic
   lockout.
+
+### Changed
+- Chat output uses a compact "ESC:" prefix, on every line.
+
+### Fixed
+- The loot toast no longer names another class's set when a looted appearance
+  only belongs to one (legacy raids drop every armor type) — it now sticks to
+  your class's sets, with a Notifications option to include the others.
 
 ## [1.0.0] - 2026-08-07
 
