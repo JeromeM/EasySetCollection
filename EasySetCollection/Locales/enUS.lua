@@ -95,6 +95,11 @@ L["Expansion"] = "Expansion"
 L["Alphabetical"] = "Alphabetical"
 L["Progress"] = "Progress"
 
+-- lockouts
+L["This week"] = "This week"
+L["Cleared this week"] = "Cleared this week"
+L["Hide sets with nothing left to farm this week"] = "Hide sets with nothing left to farm this week"
+
 -- toast
 L["New set piece!"] = "New set piece!"
 L["Set complete!"] = "Set complete!"

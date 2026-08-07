@@ -79,6 +79,14 @@ local function ensureRowWidgets(row)
   row.star:SetSize(16, 16)
   row.star:SetPoint("TOPLEFT", 0, 0)
 
+  -- weekly-lockout indicator, left of the X/N counter (amber = lockout
+  -- progress this week, red = nothing left to farm this week)
+  row.lock = row:CreateTexture(nil, "OVERLAY")
+  row.lock:SetTexture("Interface\\LFGFrame\\UI-LFG-ICON-LOCK")
+  row.lock:SetSize(13, 13)
+  row.lock:SetPoint("RIGHT", row.count, "LEFT", -4, 0)
+  row.lock:Hide()
+
   row:SetScript("OnClick", function(self)
     if self.entry then SetList.Select(self.entry) end
   end)
@@ -95,6 +103,20 @@ local function ensureRowWidgets(row)
       GameTooltip:AddDoubleLine(label, n .. "/" .. t,
         0.85, 0.85, 0.9,
         done and 0.38 or 0.96, done and 0.82 or 0.72, done and 0.43 or 0.32)
+    end
+    if ns.Lockouts then
+      local _, details = ns.Lockouts.GroupState(g)
+      if details then
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine(L["This week"], 0.55, 0.55, 0.62)
+        for _, d in ipairs(details) do
+          local left = d.title
+          if d.diffName and d.diffName ~= "" then left = left .. " — " .. d.diffName end
+          local right = d.killed .. "/" .. d.total .. " · " .. ns.Lockouts.ResetText(d)
+          GameTooltip:AddDoubleLine(left, right, 0.9, 0.9, 0.93,
+            d.cleared and 0.95 or 0.96, d.cleared and 0.35 or 0.72, d.cleared and 0.30 or 0.32)
+        end
+      end
     end
     GameTooltip:AddLine(" ")
     GameTooltip:AddLine(L["Click for details"], 0.35, 0.7, 1.0)
@@ -113,6 +135,14 @@ local function paintRow(row)
   row.name:SetText(g.name)
   row.tag:SetText(W.GREY .. tagText(g) .. "|r")
   row.star:SetShown(g.favorite or false)
+
+  local lockState = ns.Lockouts and ns.Lockouts.GroupState(g) or nil
+  row.lock:SetShown(lockState ~= nil)
+  if lockState == "cleared" then
+    row.lock:SetVertexColor(0.95, 0.35, 0.30)
+  else
+    row.lock:SetVertexColor(W.C_AMBER_TX[1], W.C_AMBER_TX[2], W.C_AMBER_TX[3])
+  end
 
   local n, t = ns.Pieces.GroupProgress(g)
   local sel = (g.baseSetID == SetList.selected)

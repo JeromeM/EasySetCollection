@@ -43,6 +43,12 @@ function Filters.Pass(g)
 
   local q = Filters.query
   if q ~= "" and not g.nameLower:find(q, 1, true) then return false end
+
+  -- last: the lockout verdict is the only non-precomputed axis (it resolves
+  -- the group's guide targets on first use, then caches)
+  if fl.hideCleared and ns.Lockouts and ns.Lockouts.GroupState(g) == "cleared" then
+    return false
+  end
   return true
 end
 
@@ -110,6 +116,7 @@ function Filters.ActiveCount()
   if fl.classID ~= nil then n = n + 1 end
   if fl.otherFaction then n = n + 1 end
   if not fl.showLegacy then n = n + 1 end
+  if fl.hideCleared then n = n + 1 end
   return n
 end
 
@@ -122,5 +129,6 @@ function Filters.Reset()
   fl.classID = nil
   fl.otherFaction = false
   fl.showLegacy = true
+  fl.hideCleared = false
   Filters.query = ""
 end

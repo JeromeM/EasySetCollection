@@ -17,6 +17,7 @@ Data\Overrides.lua
 Modules\Sets.lua
 Modules\Pieces.lua
 Modules\Sources.lua
+Modules\Lockouts.lua
 Modules\Filters.lua
 Navigation\Arrow.lua
 Navigation\Waypoint.lua

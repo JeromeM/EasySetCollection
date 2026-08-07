@@ -93,6 +93,11 @@ L["Expansion"] = "Extension"
 L["Alphabetical"] = "Alphabétique"
 L["Progress"] = "Progression"
 
+-- lockouts
+L["This week"] = "Cette semaine"
+L["Cleared this week"] = "Nettoyée cette semaine"
+L["Hide sets with nothing left to farm this week"] = "Masquer les ensembles sans rien à farmer cette semaine"
+
 -- toast
 L["New set piece!"] = "Nouvelle pièce d'ensemble !"
 L["Set complete!"] = "Ensemble complet !"

@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Weekly lockouts in the browser**: sets whose source instances carry an
+  active lockout show a lock icon in the list (amber = partial progress this
+  week, red = nothing left to farm), with the per-instance detail — difficulty,
+  bosses done, time to reset — in the row tooltip and under the detail pane's
+  progress bar. The "Guide me to..." menu flags cleared destinations, and a
+  new filter (Extras) hides sets with nothing left to farm this week. Variant
+  difficulties are honoured: a Heroic recolor only listens to the Heroic
+  lockout.
+
 ## [1.0.0] - 2026-08-07
 
 First full release.

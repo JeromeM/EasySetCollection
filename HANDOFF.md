@@ -36,6 +36,15 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
 - `Modules/Sources.lua` — the three-layer source resolution (overrides > baked >
   live `GetAppearanceSourceDrops` + a lazily-built EJ name index), content-type
   classification, `GuideTargets(setID)` / `NavFor(setID)`, `/esc missing` dump.
+- `Modules/Lockouts.lua` — weekly lockouts (`GetSavedInstanceInfo`, refreshed
+  via `RequestRaidInfo` on PEW/BOSS_KILL → `UPDATE_INSTANCE_INFO`), indexed by
+  localized instance name (joins the EJ names used by Sources' guide targets).
+  `SetState(setID)` → "cleared"/"partial"/nil + per-instance details, cached;
+  variant difficulty (set description ∈ GetDifficultyInfo names) selects the
+  matching lockout only. Verdicts invalidated on collection changes (missing
+  counts move). NOTE: the hideCleared filter resolves GuideTargets for every
+  passing group on first use — if that first toggle hitches with a cold drops
+  cache, precompute or restrict to raid/dungeon buckets.
 - `Modules/Filters.lua` — the filter/sort pipeline (single O(#groups) pass).
 - `Navigation/*` — the waypoint/arrow/routing stack. `Waypoint.lua`:
   `ns.EntranceForInstance(jid)` (live `GetDungeonEntrancesForMap` over override
