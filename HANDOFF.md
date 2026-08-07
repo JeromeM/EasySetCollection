@@ -41,7 +41,10 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
   localized instance name (joins the EJ names used by Sources' guide targets).
   `SetState(setID)` → "cleared"/"partial"/nil + per-instance details, cached;
   variant difficulty (set description ∈ GetDifficultyInfo names) selects the
-  matching lockout only. Verdicts invalidated on collection changes (missing
+  matching lockout only — and is only ENFORCED when the group has ≥2
+  difficulty-named variants (vanilla sets say "Normal", their lockout says
+  "40 Player"). Names join through normKey (lowercase, ’→', punctuation
+  stripped). Verdicts invalidated on collection changes (missing
   counts move). NOTE: the hideCleared filter resolves GuideTargets for every
   passing group on first use — if that first toggle hitches with a cold drops
   cache, precompute or restrict to raid/dungeon buckets.

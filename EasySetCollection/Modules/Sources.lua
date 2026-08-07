@@ -510,7 +510,7 @@ function Sources.GuideTargets(setID)
           or (ov.npc and L[ov.npc]) or (info and info.name) or "?",
       }
     elseif ov.j then
-      out[#out + 1] = { jid = ov.j, title = Sources.InstanceName(ov.j), missing = 0 }
+      out[#out + 1] = { jid = ov.j, title = Sources.InstanceName(ov.j), missing = 0, pieces = 0 }
       byJid[ov.j] = out[#out]
     end
   end

@@ -80,11 +80,13 @@ local function ensureRowWidgets(row)
   row.star:SetPoint("TOPLEFT", 0, 0)
 
   -- weekly-lockout indicator, left of the X/N counter (amber = lockout
-  -- progress this week, red = nothing left to farm this week)
+  -- progress this week, red = nothing left to farm this week). Ignores the
+  -- row's dimming so it stays readable on untouched (0/N) sets.
   row.lock = row:CreateTexture(nil, "OVERLAY")
-  row.lock:SetTexture("Interface\\LFGFrame\\UI-LFG-ICON-LOCK")
-  row.lock:SetSize(13, 13)
+  if ns.Lockouts then ns.Lockouts.ApplyIcon(row.lock) end
+  row.lock:SetSize(16, 16)
   row.lock:SetPoint("RIGHT", row.count, "LEFT", -4, 0)
+  row.lock:SetIgnoreParentAlpha(true)
   row.lock:Hide()
 
   row:SetScript("OnClick", function(self)

@@ -582,10 +582,11 @@ function Detail.Refresh()
         bits[#bits + 1] = string.format("%s %d/%d · %s",
           label, d.killed, d.total, ns.Lockouts.ResetText(d))
       end
-      local color = (lockState == "cleared") and "|cfff25a4d" or W.AMBER
+      local color = (lockState == "cleared") and "|cfff25a4d"
+        or (lockState == "partial") and W.AMBER or W.GREY
       Detail.lockLine:ClearAllPoints()
       Detail.lockLine:SetPoint("TOPLEFT", X, y)
-      Detail.lockLine:SetText("|TInterface\\LFGFrame\\UI-LFG-ICON-LOCK:12:12:0:-1|t " .. color
+      Detail.lockLine:SetText(ns.Lockouts.IconMarkup(12) .. " " .. color
         .. string.format(L["%s: %s"], L["This week"], table.concat(bits, " · ")) .. "|r")
       Detail.lockLine:Show()
       y = y - 18
