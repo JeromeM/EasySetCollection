@@ -256,6 +256,20 @@ function SetList.Refresh()
     for i, g in ipairs(list) do g._zebra = (i % 2 == 0) end
     SetList.box:SetDataProvider(CreateDataProvider(list),
       ScrollBoxConstants and ScrollBoxConstants.RetainScrollPosition or nil)
+
+    -- once per session: bring the restored selection into view
+    if SetList.selected and not SetList.didInitialScroll then
+      for i, g in ipairs(list) do
+        if g.baseSetID == SetList.selected then
+          SetList.didInitialScroll = true
+          if SetList.box.ScrollToElementDataIndex then
+            pcall(SetList.box.ScrollToElementDataIndex, SetList.box, i,
+              ScrollBoxConstants and ScrollBoxConstants.AlignCenter or nil)
+          end
+          break
+        end
+      end
+    end
   end
 
   f.counts:SetText(W.GREY .. string.format(L["%d sets · %d complete"], #list, complete or 0) .. "|r")

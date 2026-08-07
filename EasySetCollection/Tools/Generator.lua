@@ -65,19 +65,26 @@ end
 local function harvestEntrances()
   entranceLoc = {}
   if not (C_EncounterJournal and C_EncounterJournal.GetDungeonEntrancesForMap) then return end
+  local ZONE = (Enum and Enum.UIMapType and Enum.UIMapType.Zone) or 3
   for mapID = 1, 2700 do
     local ok, ents = pcall(C_EncounterJournal.GetDungeonEntrancesForMap, mapID)
     if ok and type(ents) == "table" then
+      local info = C_Map.GetMapInfo and C_Map.GetMapInfo(mapID)
+      local isZone = info and info.mapType == ZONE
       for _, e in ipairs(ents) do
         local jid = e.journalInstanceID
-        if jid and not entranceLoc[jid] then
+        -- prefer ZONE-type maps: the first map found can be a continent, whose
+        -- normalized coords are far too coarse for a usable waypoint
+        local cur = entranceLoc[jid]
+        if jid and (not cur or (isZone and not cur.zone)) then
           local x, y = 0, 0
           if e.position and e.position.GetXY then x, y = e.position:GetXY() end
-          entranceLoc[jid] = { map = mapID, x = (x or 0) * 100, y = (y or 0) * 100 }
+          entranceLoc[jid] = { map = mapID, x = (x or 0) * 100, y = (y or 0) * 100, zone = isZone or nil }
         end
       end
     end
   end
+  for _, l in pairs(entranceLoc) do l.zone = nil end   -- internal flag, not exported
 end
 
 -- --- phase 3: PvP snapshot via the client's own sets filters -----------------

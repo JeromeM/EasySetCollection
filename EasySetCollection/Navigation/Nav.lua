@@ -15,6 +15,12 @@ function Nav.Available()
   return (FarstriderLib_API and FarstriderLib_API.FindTrailTo) and true or false
 end
 
+--- Stop following the current trail (guidance dismissed by the player).
+function Nav.StopFollowing()
+  Nav.lastTarget = nil
+  Nav.currentLabel = nil
+end
+
 --- Resolve a navigation target ({jid} or {map,x,y}) to map + 0-100 coords.
 local function coordsFor(target)
   if target.jid then
@@ -32,13 +38,14 @@ function Nav.GuideTo(target)
   if not target or not Nav.Available() then return false end
   local map, x, y = coordsFor(target)
   if not map or not x or not y then return false end
+  Nav.lastTarget = target   -- re-routed on zone changes (see Core.lua)
 
   -- FarstriderLib wants UI coords in 0-1; ours are 0-100.
   local ok, op = pcall(FarstriderLib_API.FindTrailTo, map, x / 100, y / 100, 0)
   if not ok or type(op) ~= "table" or #op == 0 then
     -- present but no route (already there / off-map) -> just point at the target
     ns.Travel.Hide()
-    ns.Waypoint.SetTo(map, x / 100, y / 100, target.title)
+    ns.Waypoint.SetTo(map, x / 100, y / 100, target.title, true)
     Nav.currentLabel = nil
     return true
   end
@@ -66,9 +73,9 @@ function Nav.GuideTo(target)
     -- we always leave a waypoint (never nothing).
     ns.Travel.Hide()
     if step.loc and step.loc.mapId and step.loc.pos then
-      ns.Waypoint.SetTo(step.loc.mapId, step.loc.pos.x, step.loc.pos.y, step.loca or target.title)
+      ns.Waypoint.SetTo(step.loc.mapId, step.loc.pos.x, step.loc.pos.y, step.loca or target.title, true)
     else
-      ns.Waypoint.SetTo(map, x / 100, y / 100, target.title)
+      ns.Waypoint.SetTo(map, x / 100, y / 100, target.title, true)
     end
   end
   Nav.currentLabel = step.loca      -- already-localized instruction for this step

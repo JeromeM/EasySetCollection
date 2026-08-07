@@ -99,15 +99,43 @@ function Detail.Build(f)
     GameTooltip:Hide()
   end)
 
-  Detail.tryBtn = W.MakeButton(f, "nav")
-  Detail.tryBtn:SetSize(88, 26)
-  Detail.tryBtn:SetPoint("LEFT", Detail.guideBtn, "RIGHT", 6, 0)
-  Detail.tryBtn.label:SetText(L["Try on"])
-  Detail.tryBtn:SetScript("OnClick", function() Detail.TryOn() end)
+  Detail.trackBtn = W.MakeButton(f, "nav")
+  Detail.trackBtn:SetSize(88, 26)
+  Detail.trackBtn:SetPoint("LEFT", Detail.guideBtn, "RIGHT", 6, 0)
+  Detail.trackBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  Detail.trackBtn:SetScript("OnClick", function(self, mouseButton)
+    if not (Detail.setID and ns.Tracker) then return end
+    if mouseButton == "RightButton" then
+      if MenuUtil and MenuUtil.CreateContextMenu then
+        MenuUtil.CreateContextMenu(self, function(_, root)
+          root:CreateTitle(L["Track"])
+          root:CreateButton(L["Add to the current tracking"],
+            function() ns.Tracker.Add(Detail.setID) end)
+          if ns.Tracker.IsTracked(Detail.setID) then
+            root:CreateButton(L["Stop tracking"],
+              function() ns.Tracker.Remove(Detail.setID) end)
+          end
+        end)
+      end
+    else
+      ns.Tracker.Toggle(Detail.setID)
+    end
+  end)
+  Detail.trackBtn:SetScript("OnEnter", function(self)
+    W.Paint(self, true)
+    ns.Widgets.OwnTooltip(self, "ANCHOR_TOP")
+    GameTooltip:AddLine(L["Track"])
+    GameTooltip:AddLine(L["Follow this set in a small movable window: pieces, progress, and a waypoint to the next missing one."], 1, 1, 1, true)
+    GameTooltip:Show()
+  end)
+  Detail.trackBtn:SetScript("OnLeave", function(self)
+    W.Paint(self, false)
+    GameTooltip:Hide()
+  end)
 
   Detail.journalBtn = W.MakeButton(f, "nav")
   Detail.journalBtn:SetSize(88, 26)
-  Detail.journalBtn:SetPoint("LEFT", Detail.tryBtn, "RIGHT", 6, 0)
+  Detail.journalBtn:SetPoint("LEFT", Detail.trackBtn, "RIGHT", 6, 0)
   Detail.journalBtn.label:SetText(L["Journal"])
   Detail.journalBtn:SetScript("OnClick", function() Detail.OpenJournal() end)
 
@@ -119,6 +147,31 @@ end
 -- preview pane: the player's own character wearing the set (DressUpModel),
 -- with a full-set / owned-pieces-only toggle
 -- ---------------------------------------------------------------------------
+--- (Re)apply the current set's outfit to the model — WITHOUT SetUnit, so it is
+--- safe to call from OnModelLoaded (the login fix: dressing happened before the
+--- player model finished loading, leaving the preview empty).
+local function dressModel(m)
+  local setID = Detail.setID
+  if not setID then return end
+  local mode = ns.db.preview or "full"
+  pcall(m.Undress, m)
+  -- Undress does not reliably strip weapons: clear main/off hand explicitly
+  -- (TryOn puts them back when the set actually includes them)
+  if m.UndressSlot then
+    pcall(m.UndressSlot, m, 16)
+    pcall(m.UndressSlot, m, 17)
+  end
+  for _, piece in ipairs(ns.Pieces.For(setID)) do
+    if (mode == "full" or piece.collected) and not Detail.hiddenPieces[piece.sourceID] then
+      local ok = pcall(m.TryOn, m, piece.sourceID)
+      if not ok then
+        local link = ns.Pieces.ItemLink(piece.sourceID, piece.itemID)
+        if link then pcall(m.TryOn, m, link) end
+      end
+    end
+  end
+end
+
 function Detail.BuildPreview(f)
   local UI = ns.UI
   local X, MW = UI.MODEL_X, UI.MODEL_W
@@ -135,6 +188,9 @@ function Detail.BuildPreview(f)
   m:SetPoint("TOPLEFT", bg, "TOPLEFT", 2, -2)
   m:SetPoint("BOTTOMRIGHT", bg, "BOTTOMRIGHT", -2, 2)
   m:SetFrameLevel(bg:GetFrameLevel() + 1)
+  -- load the unit WITHOUT its equipment (weapons/shield resisted Undress);
+  -- this is what Blizzard's own wardrobe models use (autodress="false")
+  if m.SetAutoDress then m:SetAutoDress(false) end
   m:EnableMouse(true)
   m:EnableMouseWheel(true)
 
@@ -166,6 +222,8 @@ function Detail.BuildPreview(f)
   m:SetScript("OnLeave", GameTooltip_Hide)
   -- the model loses its contents when hidden: force a re-dress on next refresh
   m:SetScript("OnShow", function() Detail.previewKey = nil end)
+  -- re-apply the outfit once the base model actually finishes loading (login)
+  m:SetScript("OnModelLoaded", function(self) dressModel(self) end)
 
   -- toggle row: full set / owned pieces only
   Detail.previewBtns = {}
@@ -210,15 +268,21 @@ function Detail.UpdatePreview(force)
   m:SetUnit("player")
   m:SetRotation(m._rot or 0)
   if m.SetCamDistanceScale then m:SetCamDistanceScale(m._zoom or 1) end
-  pcall(m.Undress, m)
-  for _, piece in ipairs(ns.Pieces.For(setID)) do
-    if (mode == "full" or piece.collected) and not Detail.hiddenPieces[piece.sourceID] then
-      local ok = pcall(m.TryOn, m, piece.sourceID)
-      if not ok then
-        local link = ns.Pieces.ItemLink(piece.sourceID, piece.itemID)
-        if link then pcall(m.TryOn, m, link) end
+  dressModel(m)   -- also re-applied by OnModelLoaded once the model is ready
+
+  -- login robustness: SetUnit fails silently before the world is fully ready
+  -- (and then OnModelLoaded never fires) — retry while no model is loaded
+  local ok, fid = pcall(m.GetModelFileID, m)
+  if (not ok or not fid or fid == 0) and (m._retries or 0) < 10 then
+    m._retries = (m._retries or 0) + 1
+    C_Timer.After(0.6, function()
+      if m:IsShown() then
+        Detail.previewKey = nil
+        Detail.UpdatePreview()
       end
-    end
+    end)
+  elseif ok and fid and fid ~= 0 then
+    m._retries = 0
   end
 end
 
@@ -231,7 +295,7 @@ function Detail.HideWidgets()
   for _, b in ipairs(Detail.variantBtns) do b:Hide() end
   for _, r in ipairs(Detail.pieceRows) do r:Hide() end
   Detail.guideBtn:Hide()
-  Detail.tryBtn:Hide()
+  Detail.trackBtn:Hide()
   Detail.journalBtn:Hide()
   if Detail.modelBG then Detail.modelBG:Hide() end
   if Detail.model then Detail.model:Hide() end
@@ -586,7 +650,11 @@ function Detail.Refresh()
   Detail.guideBtn.arrow:SetShown(#targets > 1)
   W.SetBtn(Detail.guideBtn, #targets > 0)
   Detail.guideBtn:Show()
-  Detail.tryBtn:Show()
+  local tracked = ns.Tracker and ns.Tracker.IsTracked and ns.Tracker.IsTracked(setID)
+  Detail.trackBtn._kind = tracked and "primary" or "nav"
+  Detail.trackBtn.label:SetText(tracked and L["Stop"] or L["Track"])
+  W.Paint(Detail.trackBtn, false)
+  Detail.trackBtn:Show()
   Detail.journalBtn:Show()
 
   -- preview pane
@@ -638,16 +706,6 @@ function Detail.OpenGuideMenu()
       root:CreateButton(label, function() Detail.GuideTo(target) end)
     end
   end)
-end
-
---- "Try on": the whole selected variant in the dressing room — the exact call
---- Blizzard's sets journal makes.
-function Detail.TryOn()
-  if not Detail.setID then return end
-  local sources = C_TransmogSets.GetAllSourceIDs and C_TransmogSets.GetAllSourceIDs(Detail.setID)
-  if sources and #sources > 0 and DressUpTransmogSet then
-    pcall(DressUpTransmogSet, sources)
-  end
 end
 
 --- "Journal": open the Blizzard Appearances > Sets tab on this set (best effort;

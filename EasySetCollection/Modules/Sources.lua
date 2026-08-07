@@ -212,6 +212,44 @@ function Sources.PieceSourceText(setID, piece)
   return Sources.SourceLabel(piece.sourceType)
 end
 
+--- Hierarchy parts of a piece for the tracker tree: the LOCATION (instance
+--- name, or the source kind for non-instance pieces) and the SOURCE inside it
+--- (boss encounter / quest title / vendor name — nil when unknown).
+function Sources.PieceSourceParts(setID, piece)
+  if piece.sourceType == ns.SRC.BOSS then
+    local jid = Sources.PieceInstance(setID, piece)
+    local drops = dropsFor(piece.sourceID)
+    local d
+    if drops then
+      d = drops[1]
+      if jid and #drops > 1 then
+        local want = Sources.InstanceName(jid)
+        for _, cand in ipairs(drops) do
+          if cand.instance == want then d = cand break end
+        end
+      end
+    end
+    local loc = (jid and Sources.InstanceName(jid)) or (d and d.instance)
+    if loc then return loc, d and d.encounter or nil end
+    return Sources.SourceLabel(piece.sourceType), nil
+  elseif piece.sourceType == ns.SRC.QUEST then
+    local ov = overrideFor(setID)
+    local qid = ov and ov.questID
+    if not qid and EasySetCollectionSets then
+      local baked = EasySetCollectionSets[setID]
+      if baked then
+        local p = baked.pieces and baked.pieces[piece.sourceID]
+        qid = (p and p.q) or baked.q
+      end
+    end
+    return Sources.SourceLabel(piece.sourceType), qid and Sources.QuestTitle(qid) or nil
+  elseif piece.sourceType == ns.SRC.VENDOR then
+    local ov = overrideFor(setID)
+    return Sources.SourceLabel(piece.sourceType), (ov and ov.npc and L[ov.npc]) or nil
+  end
+  return Sources.SourceLabel(piece.sourceType), nil
+end
+
 -- --- group classification (used at catalog build) ----------------------------
 
 local CT_PRIORITY = { "raid", "dungeon", "quest", "vendor", "world", "achievement", "profession", "tradingpost" }
@@ -477,23 +515,39 @@ function Sources.GuideTargets(setID)
     end
   end
 
+  -- every instance the set drops in is a target (raid/dungeon entrance), even
+  -- when nothing is missing there — missing pieces only drive the priority.
+  -- A piece can drop in SEVERAL instances (WotLK tiers: Naxxramas AND Vault of
+  -- Archavon), so every drop location counts, not just the resolved-first one.
   local instTargets = {}
   for _, piece in ipairs(ns.Pieces.For(setID)) do
-    if not piece.collected then
-      local jid = Sources.PieceInstance(setID, piece)
-      if jid then
-        local t = byJid[jid]
-        if not t then
-          t = { jid = jid, title = Sources.InstanceName(jid), missing = 0 }
-          byJid[jid] = t
-          instTargets[#instTargets + 1] = t
+    local jids = {}
+    local primary = Sources.PieceInstance(setID, piece)
+    if primary then jids[primary] = true end
+    if piece.sourceType == ns.SRC.BOSS then
+      local drops = dropsFor(piece.sourceID)
+      if drops then
+        local idx = ensureEJIndex()
+        for _, d in ipairs(drops) do
+          local j2 = idx and d.instance and idx[d.instance]
+          if j2 then jids[j2] = true end
         end
-        t.missing = t.missing + 1
       end
+    end
+    for jid in pairs(jids) do
+      local t = byJid[jid]
+      if not t then
+        t = { jid = jid, title = Sources.InstanceName(jid), missing = 0, pieces = 0 }
+        byJid[jid] = t
+        instTargets[#instTargets + 1] = t
+      end
+      t.pieces = t.pieces + 1
+      if not piece.collected then t.missing = t.missing + 1 end
     end
   end
   table.sort(instTargets, function(a, b)
     if a.missing ~= b.missing then return a.missing > b.missing end
+    if (a.pieces or 0) ~= (b.pieces or 0) then return (a.pieces or 0) > (b.pieces or 0) end
     return a.title < b.title
   end)
   for _, t in ipairs(instTargets) do out[#out + 1] = t end

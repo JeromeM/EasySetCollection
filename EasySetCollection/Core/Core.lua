@@ -35,6 +35,17 @@ local function initSavedVars()
   if ns.db.toast.showOtherSets == nil then ns.db.toast.showOtherSets = true end
   if ns.db.preview == nil then ns.db.preview = "full" end   -- "full" | "owned"
 
+  ns.charDB.trackedSets = ns.charDB.trackedSets or {}
+  if ns.charDB.trackedSetID then   -- migrate the old single-set field
+    table.insert(ns.charDB.trackedSets, ns.charDB.trackedSetID)
+    ns.charDB.trackedSetID = nil
+  end
+
+  ns.db.tracker = ns.db.tracker or {}
+  if ns.db.tracker.hideCollected == nil then ns.db.tracker.hideCollected = false end
+  if ns.db.tracker.autoGuide == nil then ns.db.tracker.autoGuide = true end
+  if ns.db.tracker.locked == nil then ns.db.tracker.locked = false end
+
   ns.db.filters = ns.db.filters or {}
   local fl = ns.db.filters
   fl.possession = fl.possession or {}
@@ -54,6 +65,17 @@ local function initSavedVars()
   if fl.otherFaction == nil then fl.otherFaction = false end
   if fl.showLegacy == nil then fl.showLegacy = true end
   -- fl.classID stays nil by default: nil = current class, 0 = all classes
+
+  -- `/esc lang`: force the addon chrome to English. The locale files already
+  -- ran (saved variables load after the Lua files), but translations are plain
+  -- entries in ns.L whose metatable falls back to the English keys — wiping
+  -- the table restores English. Game data (sets, items, quests, instances)
+  -- stays in the client language either way.
+  if ns.db.forceEnglish == nil then ns.db.forceEnglish = false end
+  if ns.db.forceEnglish then
+    wipe(ns.L)
+    _G["BINDING_NAME_EASYSETCOLLECTION_TOGGLE"] = ns.L["Open/close the window"]
+  end
 end
 
 --- PLAYER_LOGIN handler: build the UI shell, settings pages and minimap button,
@@ -64,6 +86,9 @@ local function onLogin()
   ns.UI.BuildSettings()
   ns.Minimap.Init()
   if ns.db.shown then ns.UI.Show() end
+  -- restore the tracked-set window (it refreshes again once collection data
+  -- is ready, via the first TRANSMOG_COLLECTION_UPDATED)
+  if ns.Tracker and #(ns.charDB.trackedSets or {}) > 0 then ns.Tracker.Refresh() end
 end
 
 -- --- events ---------------------------------------------------------------
@@ -80,6 +105,8 @@ local function queueRefresh()
     if ns.Sets then ns.Sets.Invalidate() end
     if ns.Pieces then ns.Pieces.WipeProgressCache() end
     if ns.UI and ns.UI.RefreshAll then ns.UI.RefreshAll() end
+    -- the tracker lives outside the main window: refresh it even when hidden
+    if ns.Tracker and ns.Tracker.Refresh then ns.Tracker.Refresh() end
   end)
 end
 
@@ -87,6 +114,7 @@ local f = CreateFrame("Frame")
 f:RegisterEvent("ADDON_LOADED")
 f:RegisterEvent("PLAYER_LOGIN")
 f:RegisterEvent("PLAYER_ENTERING_WORLD")
+f:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 f:RegisterEvent("TRANSMOG_COLLECTION_UPDATED")
 f:RegisterEvent("TRANSMOG_COLLECTION_SOURCE_ADDED")
 f:RegisterEvent("TRANSMOG_COLLECTION_SOURCE_REMOVED")
@@ -104,6 +132,21 @@ f:SetScript("OnEvent", function(_, event, arg1)
     -- the client re-syncs the whole collection after every loading screen and can
     -- replay SOURCE_ADDED in bursts; suppress the loot toast for a few seconds.
     ns.toastGraceUntil = GetTime() + 10
+    -- FarstriderLib trail: recompute the next hop once the position settles;
+    -- also re-dress the preview model (SetUnit fails during loading screens)
+    C_Timer.After(1.5, function()
+      if ns.Nav and ns.Nav.lastTarget and ns.Nav.Available() then
+        ns.Nav.GuideTo(ns.Nav.lastTarget)
+      end
+      if ns.Detail then ns.Detail.previewKey = nil end
+      if ns.UI and ns.UI.RefreshDetail then ns.UI.RefreshDetail() end
+    end)
+
+  elseif event == "ZONE_CHANGED_NEW_AREA" then
+    -- entered a new zone without a loading screen: advance the trail
+    if ns.Nav and ns.Nav.lastTarget and ns.Nav.Available() then
+      ns.Nav.GuideTo(ns.Nav.lastTarget)
+    end
 
   elseif event == "TRANSMOG_COLLECTION_UPDATED" then
     queueRefresh()
@@ -157,6 +200,11 @@ SlashCmdList.EASYSETCOLLECTION = function(msg)
   if msg == "guide" then
     if ns.UI and ns.UI.GuideSelected then ns.UI.GuideSelected() end
 
+  elseif msg == "track" then
+    if ns.Tracker and ns.Detail and ns.Detail.setID then
+      ns.Tracker.Toggle(ns.Detail.setID)
+    end
+
   elseif msg == "minimap" then
     ns.db.minimap.hide = not ns.db.minimap.hide
     if ns.Minimap.button then
@@ -166,6 +214,12 @@ SlashCmdList.EASYSETCOLLECTION = function(msg)
   elseif msg == "arrow" then
     ns.db.autoGuide = not ns.db.autoGuide
     ns.Print(ns.db.autoGuide and L["Auto waypoint arrow: ON"] or L["Auto waypoint arrow: OFF"])
+
+  elseif msg == "lang" then
+    ns.db.forceEnglish = not ns.db.forceEnglish
+    ns.Print(ns.db.forceEnglish
+      and L["Addon language: English (type /reload to apply)"]
+      or L["Addon language: client language (type /reload to apply)"])
 
   elseif msg == "debug" then
     -- diagnostics: catalog size, baked-data coverage, current selection
@@ -213,6 +267,7 @@ SlashCmdList.EASYSETCOLLECTION = function(msg)
     print("  " .. L["/esc guide — set a waypoint to the selected set"])
     print("  " .. L["/esc minimap — toggle the minimap button"])
     print("  " .. L["/esc arrow — toggle the auto waypoint arrow"])
+    print("  " .. L["/esc lang — toggle English addon texts"])
 
   else
     ns.UI.Toggle()
