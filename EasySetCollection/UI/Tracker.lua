@@ -127,9 +127,7 @@ local function ensureRow(i)
     if self.srcFull and self.srcFull ~= "" then
       GameTooltip:AddLine(self.srcFull, 0.96, 0.72, 0.32, true)
     end
-    if not p.collected then
-      GameTooltip:AddLine(L["Click to set a waypoint to this piece."], 0.35, 0.7, 1.0)
-    end
+    GameTooltip:AddLine(L["Click to set a waypoint to this piece."], 0.35, 0.7, 1.0)
     GameTooltip:Show()
   end)
   row:SetScript("OnLeave", GameTooltip_Hide)
