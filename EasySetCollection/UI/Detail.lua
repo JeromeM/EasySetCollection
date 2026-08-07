@@ -155,6 +155,12 @@ local function dressModel(m)
   if not setID then return end
   local mode = ns.db.preview or "full"
   pcall(m.Undress, m)
+  -- Undress does not reliably strip weapons: clear main/off hand explicitly
+  -- (TryOn puts them back when the set actually includes them)
+  if m.UndressSlot then
+    pcall(m.UndressSlot, m, 16)
+    pcall(m.UndressSlot, m, 17)
+  end
   for _, piece in ipairs(ns.Pieces.For(setID)) do
     if (mode == "full" or piece.collected) and not Detail.hiddenPieces[piece.sourceID] then
       local ok = pcall(m.TryOn, m, piece.sourceID)
