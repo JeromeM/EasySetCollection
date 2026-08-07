@@ -326,6 +326,10 @@ local function ensurePieceRow(i, f)
     elseif p.name then
       GameTooltip:SetText(p.name)
     end
+    if self.srcFull and self.srcFull ~= "" then
+      -- the full source line (the row truncates long boss/instance names)
+      GameTooltip:AddLine(self.srcFull, 0.96, 0.72, 0.32, true)
+    end
     if p.collected then
       GameTooltip:AddLine(L["Appearance collected"], 0.38, 0.82, 0.43)
     else
@@ -419,7 +423,8 @@ paintPieceRow = function(row, piece, setID)
   local bits = {}
   if slot ~= "" then bits[#bits + 1] = slot end
   if srcText and srcText ~= "" then bits[#bits + 1] = srcText end
-  row.src:SetText(W.GREY .. table.concat(bits, " · ") .. "|r")
+  row.srcFull = table.concat(bits, " · ")   -- untruncated copy for the tooltip
+  row.src:SetText(W.GREY .. row.srcFull .. "|r")
   row:SetAlpha(hidden and 0.65 or (piece.collected and 1 or 0.8))
 end
 
