@@ -85,6 +85,7 @@ function Detail.Build(f)
   Detail.guideBtn:SetScript("OnEnter", function(self)
     W.Paint(self, true)
     GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:AddLine(L["Guide me"])   -- first line = the tooltip's title font
     if self:IsEnabled() then
       GameTooltip:AddLine(L["Set a waypoint to the place holding the most missing pieces."], 1, 1, 1, true)
       GameTooltip:AddLine(L["Right-click to choose the destination."], 0.35, 0.7, 1.0)
@@ -158,6 +159,7 @@ function Detail.BuildPreview(f)
   end)
   m:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_TOPRIGHT")
+    GameTooltip:AddLine(L["Preview"])   -- first line = the tooltip's title font
     GameTooltip:AddLine(L["Drag to rotate, mouse wheel to zoom."], 0.7, 0.7, 0.7, true)
     GameTooltip:Show()
   end)

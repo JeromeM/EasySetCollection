@@ -29,6 +29,7 @@ L["Appearance not collected"] = "Appearance not collected"
 L["Appearance collected from another item."] = "Appearance collected from another item."
 
 -- preview pane
+L["Preview"] = "Preview"
 L["Full set"] = "Full set"
 L["Owned pieces"] = "Owned pieces"
 L["Drag to rotate, mouse wheel to zoom."] = "Drag to rotate, mouse wheel to zoom."
