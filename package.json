@@ -1,0 +1,13 @@
+{
+  "name": "easysetcollection-tools",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Build tooling for the EasySetCollection WoW addon (data transform + Lua syntax check).",
+  "scripts": {
+    "build": "node scripts/build-sets.mjs",
+    "check": "node scripts/check-lua.mjs"
+  },
+  "dependencies": {
+    "luaparse": "^0.3.1"
+  }
+}

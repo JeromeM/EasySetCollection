@@ -1,0 +1,9 @@
+<Bindings>
+  <!-- Auto-loaded by the client (name convention — not listed in the .toc).
+       The display name comes from BINDING_NAME_EASYSETCOLLECTION_TOGGLE and the
+       section title from BINDING_HEADER_EASYSETCOLLECTION (the category below
+       resolves to that global), both set in Core/Core.lua so they are localized. -->
+  <Binding name="EASYSETCOLLECTION_TOGGLE" category="BINDING_HEADER_EASYSETCOLLECTION">
+    EasySetCollection_Toggle()
+  </Binding>
+</Bindings>

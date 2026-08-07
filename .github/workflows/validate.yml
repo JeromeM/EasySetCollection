@@ -1,0 +1,20 @@
+name: Validate
+
+# Runs on branches / pull requests to catch Lua syntax errors before merge.
+# (CurseForge publishing CI will be added later, triggered by PRs into main.)
+on:
+  pull_request:
+  push:
+    branches-ignore: [main]
+
+jobs:
+  lua:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install
+      - name: Check Lua syntax
+        run: node scripts/check-lua.mjs

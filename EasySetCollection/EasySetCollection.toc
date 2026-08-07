@@ -1,0 +1,31 @@
+## Interface: 120007
+## Title: EasySetCollection
+## Notes: Transmog set collection browser with per-piece sources and farm guidance
+## Author: JeromeM
+## Version: 0.1.0
+## SavedVariables: EasySetCollectionDB, EasySetCollectionGen
+## SavedVariablesPerCharacter: EasySetCollectionCharDB
+## OptionalDeps: FarstriderLib
+
+Core\Locale.lua
+Locales\enUS.lua
+Locales\frFR.lua
+Data\SetSources.lua
+Data\Instances.lua
+Data\Overrides.lua
+Modules\Sets.lua
+Modules\Pieces.lua
+Modules\Sources.lua
+Modules\Filters.lua
+Navigation\Arrow.lua
+Navigation\Waypoint.lua
+Navigation\Travel.lua
+Navigation\Nav.lua
+UI\Widgets.lua
+UI\UI.lua
+UI\SetList.lua
+UI\Detail.lua
+UI\FilterPanel.lua
+UI\MinimapButton.lua
+Tools\Generator.lua
+Core\Core.lua
