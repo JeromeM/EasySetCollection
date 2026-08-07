@@ -160,7 +160,18 @@ function Sources.PieceSourceText(setID, piece)
   if piece.sourceType == ns.SRC.BOSS then
     local drops = dropsFor(piece.sourceID)
     if drops then
+      -- show the drop entry consistent with the resolved (baked-aware)
+      -- instance, so the detail rows agree with the list label
       local d = drops[1]
+      if #drops > 1 then
+        local jid = Sources.PieceInstance(setID, piece)
+        if jid then
+          local want = Sources.InstanceName(jid)
+          for _, cand in ipairs(drops) do
+            if cand.instance == want then d = cand break end
+          end
+        end
+      end
       local txt = (d.encounter and d.encounter ~= "") and (d.encounter .. " – ") or ""
       txt = txt .. (d.instance or "")
       if d.difficulties and #d.difficulties > 0 then
@@ -248,6 +259,43 @@ local function classifyLive(g)
   return best
 end
 
+-- --- default variant --------------------------------------------------------
+
+-- difficultyIDs in DEFAULT-SELECTION preference order: Normal first (dungeon,
+-- raid, then 10-player before 25-player and 40), Heroic, Mythic, LFR last.
+local DIFF_PREF_IDS = { 1, 14, 3, 4, 9, 2, 15, 5, 6, 23, 16, 17, 7 }
+local prefRanks   -- [localized difficulty name] = rank (built once)
+
+local function difficultyRank(desc)
+  if not desc or desc == "" then return nil end
+  if not prefRanks then
+    prefRanks = {}
+    for i, d in ipairs(DIFF_PREF_IDS) do
+      local name = GetDifficultyInfo and GetDifficultyInfo(d)
+      if name and not prefRanks[name] then prefRanks[name] = i end
+    end
+  end
+  return prefRanks[desc]
+end
+
+--- The variant a group should open on (and the one its list label describes):
+--- dungeon variants first (mixed dungeon/vendor groups), then by difficulty
+--- preference (Normal, 10-player, 25-player, Heroic…, Mythic, LFR), then the
+--- base set itself.
+function Sources.DefaultVariant(g)
+  local best, bestScore
+  for _, v in ipairs(g.variants) do
+    local score = 1000
+    local rank = difficultyRank(v.description)
+    if rank then score = rank * 10 end
+    local baked = EasySetCollectionSets and EasySetCollectionSets[v.setID]
+    if baked and baked.ct == "dungeon" then score = score - 500 end
+    if v.setID == g.baseSetID then score = score - 1 end
+    if not bestScore or score < bestScore then best, bestScore = v.setID, score end
+  end
+  return best
+end
+
 local locCache = {}   -- [baseSetID] = location label (static, resolved once)
 
 --- Label for a SET of journalInstanceIDs: the instance's name when there is
@@ -298,57 +346,22 @@ function Sources.LocationLabel(g)
     end
   end
 
-  if not label and EasySetCollectionSets then
-    -- baked: the dominant instance plus every per-piece deviation IS the full
-    -- instance list (deviations are only baked when a piece drops elsewhere)
-    local baked = EasySetCollectionSets[g.baseSetID]
-    if not (baked and (baked.j or baked.q)) then
-      for _, v in ipairs(g.variants) do
-        local b = EasySetCollectionSets[v.setID]
-        if b and (b.j or b.q) then baked = b break end
-      end
-    end
-    if baked and baked.j then
-      -- each baked deviation is one piece dropping outside the dominant
-      -- instance; with at most 2 outliers the dominant name says it best
-      -- (e.g. Judgement: 7 pieces in Blackwing Lair, 1 on Ragnaros)
-      local jids = { [baked.j] = true }
-      local outliers = 0
-      for _, p in pairs(baked.pieces or {}) do
-        if p.j then
-          jids[p.j] = true
-          outliers = outliers + 1
-        end
-      end
-      if outliers <= 2 then
-        label = Sources.InstanceName(baked.j)
-      else
-        label = instancesLabel(jids)
-      end
-    end
-    if not label and baked and baked.q then
-      -- quest set: the dominant quest's localized title
-      local title = Sources.QuestTitle(baked.q)
-      if title then label = title else nocache = true end
-    end
-  end
-
   if not label then
-    -- live fallback: distinct drop instances across the boss pieces; when the
-    -- set has no instance at all, the dominant source kind (Quest, Vendor, …)
-    -- so the row still says where to get it.
-    local setID = (g.base and g.base.setID) or g.baseSetID
-    local pas = C_TransmogSets.GetSetPrimaryAppearances and
-      C_TransmogSets.GetSetPrimaryAppearances(setID)
+    -- Same per-piece resolution as the detail pane (PieceInstance: overrides >
+    -- baked > live), computed on the DEFAULT variant — the one the detail pane
+    -- opens on — so the list label and the piece rows always agree.
+    local setID = Sources.DefaultVariant(g) or (g.base and g.base.setID) or g.baseSetID
+    local pieces = ns.Pieces.For(setID)
+    if #pieces == 0 then nocache = true end
+
     local tally, counts, total, missingDrops = {}, {}, 0, false
-    for _, pa in ipairs(pas or {}) do
-      local si = C_TransmogCollection.GetSourceInfo(pa.appearanceID)
-      local st = si and si.sourceType
+    for _, piece in ipairs(pieces) do
+      local st = piece.sourceType
       if st == ns.SRC.BOSS then
-        local drops = dropsFor(pa.appearanceID)
-        local inst = drops and drops[1] and drops[1].instance
-        if inst then
-          counts[inst] = (counts[inst] or 0) + 1
+        local jid, instName = Sources.PieceInstance(setID, piece)
+        local name = (jid and Sources.InstanceName(jid)) or instName
+        if name then
+          counts[name] = (counts[name] or 0) + 1
           total = total + 1
         else
           missingDrops = true
@@ -367,6 +380,7 @@ function Sources.LocationLabel(g)
     elseif nNames > 1 then
       if total - bestCount <= 2 then
         -- at most 2 pieces drop elsewhere: the dominant instance says it best
+        -- (e.g. Judgement: 7 pieces in Blackwing Lair, 1 on Ragnaros)
         label = bestName
       else
         local jids, unmatched = {}, 0
@@ -382,6 +396,15 @@ function Sources.LocationLabel(g)
       -- some pieces' drop data is still loading: the answer may be incomplete,
       -- return it uncached so the next repaint can do better
       return label
+    end
+
+    if not label then
+      -- quest set with a baked dominant quest -> its localized title
+      local baked = EasySetCollectionSets and EasySetCollectionSets[setID]
+      if baked and baked.q then
+        local title = Sources.QuestTitle(baked.q)
+        if title then label = title else nocache = true end
+      end
     end
 
     if not label then

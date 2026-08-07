@@ -241,18 +241,11 @@ end
 -- ---------------------------------------------------------------------------
 -- selection
 -- ---------------------------------------------------------------------------
---- The variant of a group to show by default: the one with the best progress
---- (matches the progress displayed on the group's list row).
+--- The variant of a group to show by default: dungeon variants first (mixed
+--- dungeon/vendor groups), then Normal difficulty (10-player before 25), then
+--- the base set — deterministic, and the same one the list label describes.
 local function pickVariant(g)
-  local best, bestRatio, bestT = nil, -1, 0
-  for _, v in ipairs(g.variants) do
-    local n, t = ns.Pieces.Progress(v.setID)
-    local r = t > 0 and n / t or 0
-    if r > bestRatio or (r == bestRatio and t > bestT) then
-      best, bestRatio, bestT = v.setID, r, t
-    end
-  end
-  return best or (g.variants[1] and g.variants[1].setID)
+  return ns.Sources.DefaultVariant(g) or (g.variants[1] and g.variants[1].setID)
 end
 
 --- Show a group (from a list click): keep the current variant when it belongs
