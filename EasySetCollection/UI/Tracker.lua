@@ -161,6 +161,7 @@ function Tracker.Untrack()
   ns.charDB.trackedSetID = nil
   Tracker.lastGuidedJid = nil
   if Tracker.frame then Tracker.frame:Hide() end
+  if ns.Nav and ns.Nav.StopFollowing then ns.Nav.StopFollowing() end
   if ns.Travel then ns.Travel.Hide() end
   if ns.Waypoint then ns.Waypoint.Clear() end
   if ns.UI and ns.UI.RefreshDetail then ns.UI.RefreshDetail() end

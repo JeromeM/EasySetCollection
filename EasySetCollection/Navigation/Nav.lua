@@ -15,6 +15,12 @@ function Nav.Available()
   return (FarstriderLib_API and FarstriderLib_API.FindTrailTo) and true or false
 end
 
+--- Stop following the current trail (guidance dismissed by the player).
+function Nav.StopFollowing()
+  Nav.lastTarget = nil
+  Nav.currentLabel = nil
+end
+
 --- Resolve a navigation target ({jid} or {map,x,y}) to map + 0-100 coords.
 local function coordsFor(target)
   if target.jid then
@@ -32,6 +38,7 @@ function Nav.GuideTo(target)
   if not target or not Nav.Available() then return false end
   local map, x, y = coordsFor(target)
   if not map or not x or not y then return false end
+  Nav.lastTarget = target   -- re-routed on zone changes (see Core.lua)
 
   -- FarstriderLib wants UI coords in 0-1; ours are 0-100.
   local ok, op = pcall(FarstriderLib_API.FindTrailTo, map, x / 100, y / 100, 0)

@@ -97,6 +97,7 @@ local f = CreateFrame("Frame")
 f:RegisterEvent("ADDON_LOADED")
 f:RegisterEvent("PLAYER_LOGIN")
 f:RegisterEvent("PLAYER_ENTERING_WORLD")
+f:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 f:RegisterEvent("TRANSMOG_COLLECTION_UPDATED")
 f:RegisterEvent("TRANSMOG_COLLECTION_SOURCE_ADDED")
 f:RegisterEvent("TRANSMOG_COLLECTION_SOURCE_REMOVED")
@@ -114,6 +115,18 @@ f:SetScript("OnEvent", function(_, event, arg1)
     -- the client re-syncs the whole collection after every loading screen and can
     -- replay SOURCE_ADDED in bursts; suppress the loot toast for a few seconds.
     ns.toastGraceUntil = GetTime() + 10
+    -- FarstriderLib trail: recompute the next hop once the position settles
+    C_Timer.After(1.5, function()
+      if ns.Nav and ns.Nav.lastTarget and ns.Nav.Available() then
+        ns.Nav.GuideTo(ns.Nav.lastTarget)
+      end
+    end)
+
+  elseif event == "ZONE_CHANGED_NEW_AREA" then
+    -- entered a new zone without a loading screen: advance the trail
+    if ns.Nav and ns.Nav.lastTarget and ns.Nav.Available() then
+      ns.Nav.GuideTo(ns.Nav.lastTarget)
+    end
 
   elseif event == "TRANSMOG_COLLECTION_UPDATED" then
     queueRefresh()
