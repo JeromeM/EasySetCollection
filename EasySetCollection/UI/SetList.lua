@@ -251,6 +251,19 @@ function SetList.Select(g)
   SetList.RepaintRows()
 end
 
+--- Bring a group's row into view (programmatic selection — e.g. Suggest).
+--- No-op when the group is filtered out of the current list.
+function SetList.ScrollTo(baseSetID)
+  if not (SetList.box and SetList.box.ScrollToElementDataIndex) then return end
+  for i, g in ipairs(SetList.current or {}) do
+    if g.baseSetID == baseSetID then
+      pcall(SetList.box.ScrollToElementDataIndex, SetList.box, i,
+        ScrollBoxConstants and ScrollBoxConstants.AlignCenter or nil)
+      return
+    end
+  end
+end
+
 --- Re-apply the filters and feed the scroll list; drives the loading/empty
 --- states and the footer counts.
 function SetList.Refresh()
@@ -258,6 +271,7 @@ function SetList.Refresh()
   if not f then return end
 
   local list, complete = ns.Filters.Apply()
+  SetList.current = list
 
   if not list then
     -- collection data not ready yet (login): show a message and retry shortly;

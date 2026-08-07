@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Suggest**: a button in the list footer (and `/esc suggest`) that picks the
+  closest incomplete set you can still farm this week — instance entrances are
+  ranked by real distance on your continent, sets whose sources are fully
+  cleared this week are skipped — selects it and guides you there. Right-click
+  offers the best suggestions with distance and missing-piece counts.
 - **Weekly lockouts in the browser**: sets whose source instances carry an
   active lockout show a lock icon in the list (amber = partial progress this
   week, red = nothing left to farm), with the per-instance detail — difficulty,

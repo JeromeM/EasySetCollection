@@ -93,6 +93,14 @@ L["Expansion"] = "Extension"
 L["Alphabetical"] = "Alphabétique"
 L["Progress"] = "Progression"
 
+-- suggest
+L["Suggest"] = "Suggérer"
+L["Suggestions"] = "Suggestions"
+L["Pick the closest set you can still farm this week and guide there."] = "Choisit l'ensemble incomplet le plus proche encore farmable cette semaine et vous y guide."
+L["Right-click: more suggestions"] = "Clic droit : plus de suggestions"
+L["No set to suggest right now."] = "Aucun ensemble à suggérer pour le moment."
+L["/esc suggest — guide to the closest farmable set"] = "/esc suggest — guide vers l'ensemble farmable le plus proche"
+
 -- lockouts
 L["This week"] = "Cette semaine"
 L["Cleared this week"] = "Nettoyée cette semaine"

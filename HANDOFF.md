@@ -48,6 +48,13 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
   counts move). NOTE: the hideCleared filter resolves GuideTargets for every
   passing group on first use — if that first toggle hitches with a cold drops
   cache, precompute or restrict to raid/dungeon buckets.
+- `Modules/Suggest.lua` — "farm the closest thing": sweeps the catalog (own
+  class, obtainable, incomplete, not Lockouts-"cleared"), resolves each
+  candidate's primary guide target to continent world space (EntranceForInstance
+  → GetWorldPosFromMapPos, cached per session) and ranks same-continent by
+  distance, the rest by fewest-missing. Go() selects + scrolls the list
+  (SetList.ScrollTo) and guides. Footer button (left/right click) + `/esc
+  suggest`.
 - `Modules/Filters.lua` — the filter/sort pipeline (single O(#groups) pass).
 - `Navigation/*` — the waypoint/arrow/routing stack. `Waypoint.lua`:
   `ns.EntranceForInstance(jid)` (live `GetDungeonEntrancesForMap` over override

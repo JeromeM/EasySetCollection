@@ -222,6 +222,9 @@ SlashCmdList.EASYSETCOLLECTION = function(msg)
       ns.Tracker.Toggle(ns.Detail.setID)
     end
 
+  elseif msg == "suggest" then
+    if ns.Suggest and ns.Suggest.Pick then ns.Suggest.Pick() end
+
   elseif msg == "minimap" then
     ns.db.minimap.hide = not ns.db.minimap.hide
     if ns.Minimap.button then
@@ -282,6 +285,7 @@ SlashCmdList.EASYSETCOLLECTION = function(msg)
     ns.Print(L["Commands:"])
     print("  " .. L["/esc — open/close the window"])
     print("  " .. L["/esc guide — set a waypoint to the selected set"])
+    print("  " .. L["/esc suggest — guide to the closest farmable set"])
     print("  " .. L["/esc minimap — toggle the minimap button"])
     print("  " .. L["/esc arrow — toggle the auto waypoint arrow"])
     print("  " .. L["/esc lang — toggle English addon texts"])

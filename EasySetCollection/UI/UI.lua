@@ -79,6 +79,32 @@ function UI.Init()
     end
   end)
 
+  -- "Suggest" — the flagship action, right next to the wardrobe icon
+  f.suggestBtn = W.MakeButton(f, "primary")
+  f.suggestBtn:SetSize(84, 22)
+  f.suggestBtn:SetPoint("LEFT", f.icon, "RIGHT", 8, 0)
+  f.suggestBtn.label:SetText(L["Suggest"])
+  f.suggestBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  f.suggestBtn:SetScript("OnClick", function(self, btn)
+    if btn == "RightButton" then
+      ns.Suggest.OpenMenu(self)
+    else
+      ns.Suggest.Pick()
+    end
+  end)
+  f.suggestBtn:SetScript("OnEnter", function(self)
+    W.Paint(self, true)
+    W.OwnTooltip(self, "ANCHOR_BOTTOM")
+    GameTooltip:AddLine(L["Suggest"])
+    GameTooltip:AddLine(L["Pick the closest set you can still farm this week and guide there."], 1, 1, 1, true)
+    GameTooltip:AddLine(L["Right-click: more suggestions"], 0.35, 0.7, 1.0)
+    GameTooltip:Show()
+  end)
+  f.suggestBtn:SetScript("OnLeave", function(self)
+    W.Paint(self, false)
+    GameTooltip:Hide()
+  end)
+
   f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   f.title:SetPoint("TOP", f, "TOP", 0, -15)
   f.title:SetText(W.WHITE .. L["EasySetCollection"] .. "|r")

@@ -95,6 +95,14 @@ L["Expansion"] = "Expansion"
 L["Alphabetical"] = "Alphabetical"
 L["Progress"] = "Progress"
 
+-- suggest
+L["Suggest"] = "Suggest"
+L["Suggestions"] = "Suggestions"
+L["Pick the closest set you can still farm this week and guide there."] = "Pick the closest set you can still farm this week and guide there."
+L["Right-click: more suggestions"] = "Right-click: more suggestions"
+L["No set to suggest right now."] = "No set to suggest right now."
+L["/esc suggest — guide to the closest farmable set"] = "/esc suggest — guide to the closest farmable set"
+
 -- lockouts
 L["This week"] = "This week"
 L["Cleared this week"] = "Cleared this week"
