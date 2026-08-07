@@ -85,7 +85,7 @@ local function ensureRowWidgets(row)
   row:SetScript("OnEnter", function(self)
     local g = self.entry
     if not g then return end
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    ns.Widgets.OwnTooltip(self, "ANCHOR_RIGHT")
     GameTooltip:AddLine(g.name)
     for _, v in ipairs(g.variants) do
       local n, t = ns.Pieces.Progress(v.setID)

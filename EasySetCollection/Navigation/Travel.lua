@@ -62,7 +62,7 @@ function Travel.Ensure(anchorTo)
 
   btn:SetScript("OnEnter", function(self)
     if not self.actionId then return end
-    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+    ns.Widgets.OwnTooltip(self, "ANCHOR_RIGHT")
     if self.actionKind == "spell" then
       GameTooltip:SetSpellByID(self.actionId)
     else

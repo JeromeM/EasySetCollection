@@ -84,7 +84,7 @@ function Detail.Build(f)
   end)
   Detail.guideBtn:SetScript("OnEnter", function(self)
     W.Paint(self, true)
-    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    ns.Widgets.OwnTooltip(self, "ANCHOR_TOP")
     GameTooltip:AddLine(L["Guide me"])   -- first line = the tooltip's title font
     if self:IsEnabled() then
       GameTooltip:AddLine(L["Set a waypoint to the place holding the most missing pieces."], 1, 1, 1, true)
@@ -158,7 +158,7 @@ function Detail.BuildPreview(f)
     if self.SetCamDistanceScale then self:SetCamDistanceScale(self._zoom) end
   end)
   m:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_TOPRIGHT")
+    ns.Widgets.OwnTooltip(self, "ANCHOR_TOPRIGHT")
     GameTooltip:AddLine(L["Preview"])   -- first line = the tooltip's title font
     GameTooltip:AddLine(L["Drag to rotate, mouse wheel to zoom."], 0.7, 0.7, 0.7, true)
     GameTooltip:Show()
@@ -322,7 +322,7 @@ local function ensurePieceRow(i, f)
   row:SetScript("OnEnter", function(self)
     local p = self.piece
     if not p then return end
-    GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+    ns.Widgets.OwnTooltip(self, "ANCHOR_LEFT")
     if p.itemID and GameTooltip.SetItemByID then
       GameTooltip:SetItemByID(p.itemID)
     elseif p.name then
@@ -527,7 +527,7 @@ function Detail.Refresh()
       b:SetPoint("TOPLEFT", X + (i - 1) * (bw + gap), y)
       b:SetScript("OnEnter", function(s)
         W.Paint(s, true)
-        GameTooltip:SetOwner(s, "ANCHOR_TOP")
+        ns.Widgets.OwnTooltip(s, "ANCHOR_TOP")
         GameTooltip:AddLine(label, 1, 1, 1, true)
         local done = vt > 0 and vn >= vt
         GameTooltip:AddLine(vn .. "/" .. vt,
