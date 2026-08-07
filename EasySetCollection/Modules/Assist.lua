@@ -93,10 +93,10 @@ function Assist.Check()
   local shown = math.min(#list, 12)
   for i = 1, shown do
     local e = list[i]
-    print(string.format("  |cffe9e9ec%s|r — %s |cff8a8a8a(%s)|r",
+    ns.Print(string.format("|cffe9e9ec%s|r — %s |cff8a8a8a(%s)|r",
       e.boss or L["Unknown source"], e.pieceName or "?", e.setName or "?"))
   end
   if #list > shown then
-    print("  " .. string.format(L["(+%d more pieces)"], #list - shown))
+    ns.Print(string.format(L["(+%d more pieces)"], #list - shown))
   end
 end
