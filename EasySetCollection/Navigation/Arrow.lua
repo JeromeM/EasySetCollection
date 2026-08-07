@@ -216,6 +216,11 @@ function Arrow.OpenMenu(owner)
       ns.db.arrow.locked = true
       if Arrow.frame then Arrow.frame:EnableMouse(false) end   -- click-through when locked
     end)
+    root:CreateDivider()
+    root:CreateButton(L["Close"], function()
+      -- clears our native waypoint too, not just the arrow
+      if ns.Waypoint then ns.Waypoint.Clear() else Arrow.Hide() end
+    end)
   end)
 end
 

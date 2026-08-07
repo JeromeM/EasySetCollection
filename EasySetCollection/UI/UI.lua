@@ -244,8 +244,11 @@ function UI.Hide()
   if ns.db then ns.db.shown = false end
   if UI.frame then UI.frame:Hide() end
   if ns.FilterPanel and ns.FilterPanel.Hide then ns.FilterPanel.Hide() end
+  -- the secure travel button is parented to UIParent (combat rules) and would
+  -- float alone once its dock hides with the window
   if ns.Travel then ns.Travel.Hide() end
-  if ns.Waypoint then ns.Waypoint.Clear() end   -- remove our native waypoint + arrow
+  -- the waypoint + arrow deliberately survive closing the window: they are
+  -- dismissed from the arrow's right-click menu ("Close") or by guiding elsewhere
 end
 
 function UI.Toggle()
