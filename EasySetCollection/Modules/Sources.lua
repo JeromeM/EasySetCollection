@@ -174,15 +174,27 @@ function Sources.PieceSourceText(setID, piece)
     local jid = Sources.PieceInstance(setID, piece)
     if jid then return Sources.InstanceName(jid) end
   end
-  -- hand-authored enrichments: the set's quest title / vendor name
-  local ov = overrideFor(setID)
-  if ov then
-    if piece.sourceType == ns.SRC.QUEST and ov.questID then
-      local title = Sources.QuestTitle(ov.questID)
+  if piece.sourceType == ns.SRC.QUEST then
+    -- quest title: the override questID wins, then the baked quest mapping
+    -- (from the /esc genquests sweep)
+    local ov = overrideFor(setID)
+    local qid = ov and ov.questID
+    if not qid and EasySetCollectionSets then
+      local baked = EasySetCollectionSets[setID]
+      if baked then
+        local p = baked.pieces and baked.pieces[piece.sourceID]
+        qid = (p and p.q) or baked.q
+      end
+    end
+    if qid then
+      local title = Sources.QuestTitle(qid)
       if title then
         return string.format(L["%s: %s"], Sources.SourceLabel(piece.sourceType), title)
       end
-    elseif piece.sourceType == ns.SRC.VENDOR and ov.npc then
+    end
+  elseif piece.sourceType == ns.SRC.VENDOR then
+    local ov = overrideFor(setID)
+    if ov and ov.npc then
       return string.format(L["%s: %s"], Sources.SourceLabel(piece.sourceType), L[ov.npc])
     end
   end
@@ -290,10 +302,10 @@ function Sources.LocationLabel(g)
     -- baked: the dominant instance plus every per-piece deviation IS the full
     -- instance list (deviations are only baked when a piece drops elsewhere)
     local baked = EasySetCollectionSets[g.baseSetID]
-    if not (baked and baked.j) then
+    if not (baked and (baked.j or baked.q)) then
       for _, v in ipairs(g.variants) do
         local b = EasySetCollectionSets[v.setID]
-        if b and b.j then baked = b break end
+        if b and (b.j or b.q) then baked = b break end
       end
     end
     if baked and baked.j then
@@ -313,6 +325,11 @@ function Sources.LocationLabel(g)
       else
         label = instancesLabel(jids)
       end
+    end
+    if not label and baked and baked.q then
+      -- quest set: the dominant quest's localized title
+      local title = Sources.QuestTitle(baked.q)
+      if title then label = title else nocache = true end
     end
   end
 

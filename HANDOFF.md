@@ -96,7 +96,12 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
 ## Data generation workflow (dev)
 
 1. In game: `/esc gen` (a few seconds, chunked; EJ index → entrance harvest →
-   PvP snapshot → per-set sweep with one retry for late drop data).
+   PvP snapshot → per-set sweep with retry rounds for late drop data).
+   Then optionally `/esc genquests` (~10-15 min): sweeps every questID's
+   rewards (RequestLoadQuestByID + GetQuestLogRewardInfo/ChoiceInfo) and
+   matches them against the quest pieces' itemIDs — the client has no
+   item→quest API, so the mapping is rebuilt in reverse. Early-exits once
+   every quest item is matched.
 2. `/reload` to flush `EasySetCollectionGen` to disk.
 3. Copy `WTF/Account/<acct>/SavedVariables/EasySetCollection.lua` to
    `data/sets-export.lua`.

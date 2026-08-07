@@ -127,11 +127,11 @@ function classify(rec) {
   return bestCount > 0 ? best : 'unknown';
 }
 
-// dominant value of a field over the pieces (most frequent, ignores null)
-function dominant(pieces, field) {
+// dominant value over the pieces (most frequent, ignores null)
+function dominant(pieces, get) {
   const counts = new Map();
   for (const p of pieces) {
-    const v = p[field];
+    const v = get(p);
     if (v != null) counts.set(v, (counts.get(v) || 0) + 1);
   }
   let best = null, bestCount = 0;
@@ -139,24 +139,37 @@ function dominant(pieces, field) {
   return best;
 }
 
+// itemID -> questID mapping from the /esc genquests sweep (may be absent)
+const questRewards = gen.questRewards || {};
+const qOf = (p) => (p.st === 2 && p.itemID != null ? questRewards[p.itemID] ?? null : null);
+
 const outSets = {};
-let piecesKept = 0, piecesTotal = 0;
+let piecesKept = 0, piecesTotal = 0, questPieces = 0, questMatched = 0;
 for (const rec of sets) {
   const pieces = Array.isArray(rec.pieces) ? rec.pieces : Object.values(rec.pieces || {});
   piecesTotal += pieces.length;
   const entry = {
     ct: classify(rec),
-    st: dominant(pieces, 'st'),
-    j: dominant(pieces, 'j'),
+    st: dominant(pieces, (p) => p.st),
+    j: dominant(pieces, (p) => p.j),
+    q: dominant(pieces, qOf),          // dominant quest of the quest pieces
   };
-  // bake only the deviations: a piece whose instance differs from the set's
-  // dominant one (runtime falls back to the set-level `j` for boss pieces and
+  // bake only the deviations: a piece whose instance/quest differs from the
+  // set's dominant one (runtime falls back to the set-level values and
   // resolves everything else live)
   const dev = {};
   let nDev = 0;
   for (const p of pieces) {
-    if (p.j != null && p.j !== entry.j && p.sid != null) {
-      dev[p.sid] = { j: p.j };
+    if (p.st === 2) {
+      questPieces++;
+      if (qOf(p) != null) questMatched++;
+    }
+    const d = {};
+    if (p.j != null && p.j !== entry.j) d.j = p.j;
+    const qv = qOf(p);
+    if (qv != null && qv !== entry.q) d.q = qv;
+    if (p.sid != null && Object.keys(d).length) {
+      dev[p.sid] = d;
       nDev++;
     }
   }
@@ -186,6 +199,10 @@ for (const e of Object.values(outSets)) byCt[e.ct] = (byCt[e.ct] || 0) + 1;
 console.log(`sets:      ${Object.keys(outSets).length} (${Object.entries(byCt).map(([k, n]) => `${k}=${n}`).join(', ')}) -> ${OUT_SETS}`);
 console.log(`instances: ${Object.keys(outInst).length} -> ${OUT_INST}`);
 console.log(`pieces:    ${piecesTotal} scanned, ${piecesKept} deviation records baked`);
+if (questPieces) {
+  console.log(`quests:    ${questMatched}/${questPieces} quest pieces matched to a questID`
+    + (Object.keys(questRewards).length ? '' : ' (run /esc genquests in game to fill this)'));
+}
 
 const unresolved = Array.isArray(gen.unresolved) ? gen.unresolved : Object.values(gen.unresolved || {});
 if (unresolved.length) {

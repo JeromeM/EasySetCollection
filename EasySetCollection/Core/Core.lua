@@ -203,6 +203,10 @@ SlashCmdList.EASYSETCOLLECTION = function(msg)
     -- scripts/package.sh), so guard the call — it's a silent no-op for end users.
     if ns.Gen and ns.Gen.Generate then ns.Gen.Generate() end
 
+  elseif msg == "genquests" then
+    -- DEV-ONLY: quest-reward sweep (item -> quest mapping); run after /esc gen.
+    if ns.Gen and ns.Gen.GenerateQuests then ns.Gen.GenerateQuests() end
+
   elseif msg == "help" then
     ns.Print(L["Commands:"])
     print("  " .. L["/esc — open/close the window"])
