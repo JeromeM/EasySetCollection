@@ -35,6 +35,11 @@ local function initSavedVars()
   if ns.db.toast.showOtherSets == nil then ns.db.toast.showOtherSets = true end
   if ns.db.preview == nil then ns.db.preview = "full" end   -- "full" | "owned"
 
+  ns.db.tracker = ns.db.tracker or {}
+  if ns.db.tracker.hideCollected == nil then ns.db.tracker.hideCollected = false end
+  if ns.db.tracker.autoGuide == nil then ns.db.tracker.autoGuide = true end
+  if ns.db.tracker.locked == nil then ns.db.tracker.locked = false end
+
   ns.db.filters = ns.db.filters or {}
   local fl = ns.db.filters
   fl.possession = fl.possession or {}
@@ -64,6 +69,9 @@ local function onLogin()
   ns.UI.BuildSettings()
   ns.Minimap.Init()
   if ns.db.shown then ns.UI.Show() end
+  -- restore the tracked-set window (it refreshes again once collection data
+  -- is ready, via the first TRANSMOG_COLLECTION_UPDATED)
+  if ns.charDB.trackedSetID and ns.Tracker then ns.Tracker.Refresh() end
 end
 
 -- --- events ---------------------------------------------------------------
@@ -80,6 +88,8 @@ local function queueRefresh()
     if ns.Sets then ns.Sets.Invalidate() end
     if ns.Pieces then ns.Pieces.WipeProgressCache() end
     if ns.UI and ns.UI.RefreshAll then ns.UI.RefreshAll() end
+    -- the tracker lives outside the main window: refresh it even when hidden
+    if ns.Tracker and ns.Tracker.Refresh then ns.Tracker.Refresh() end
   end)
 end
 
@@ -156,6 +166,11 @@ SlashCmdList.EASYSETCOLLECTION = function(msg)
 
   if msg == "guide" then
     if ns.UI and ns.UI.GuideSelected then ns.UI.GuideSelected() end
+
+  elseif msg == "track" then
+    if ns.Tracker and ns.Detail and ns.Detail.setID then
+      ns.Tracker.Toggle(ns.Detail.setID)
+    end
 
   elseif msg == "minimap" then
     ns.db.minimap.hide = not ns.db.minimap.hide

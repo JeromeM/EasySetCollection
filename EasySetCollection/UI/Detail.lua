@@ -99,15 +99,27 @@ function Detail.Build(f)
     GameTooltip:Hide()
   end)
 
-  Detail.tryBtn = W.MakeButton(f, "nav")
-  Detail.tryBtn:SetSize(88, 26)
-  Detail.tryBtn:SetPoint("LEFT", Detail.guideBtn, "RIGHT", 6, 0)
-  Detail.tryBtn.label:SetText(L["Try on"])
-  Detail.tryBtn:SetScript("OnClick", function() Detail.TryOn() end)
+  Detail.trackBtn = W.MakeButton(f, "nav")
+  Detail.trackBtn:SetSize(88, 26)
+  Detail.trackBtn:SetPoint("LEFT", Detail.guideBtn, "RIGHT", 6, 0)
+  Detail.trackBtn:SetScript("OnClick", function()
+    if Detail.setID and ns.Tracker then ns.Tracker.Toggle(Detail.setID) end
+  end)
+  Detail.trackBtn:SetScript("OnEnter", function(self)
+    W.Paint(self, true)
+    ns.Widgets.OwnTooltip(self, "ANCHOR_TOP")
+    GameTooltip:AddLine(L["Track"])
+    GameTooltip:AddLine(L["Follow this set in a small movable window: pieces, progress, and a waypoint to the next missing one."], 1, 1, 1, true)
+    GameTooltip:Show()
+  end)
+  Detail.trackBtn:SetScript("OnLeave", function(self)
+    W.Paint(self, false)
+    GameTooltip:Hide()
+  end)
 
   Detail.journalBtn = W.MakeButton(f, "nav")
   Detail.journalBtn:SetSize(88, 26)
-  Detail.journalBtn:SetPoint("LEFT", Detail.tryBtn, "RIGHT", 6, 0)
+  Detail.journalBtn:SetPoint("LEFT", Detail.trackBtn, "RIGHT", 6, 0)
   Detail.journalBtn.label:SetText(L["Journal"])
   Detail.journalBtn:SetScript("OnClick", function() Detail.OpenJournal() end)
 
@@ -231,7 +243,7 @@ function Detail.HideWidgets()
   for _, b in ipairs(Detail.variantBtns) do b:Hide() end
   for _, r in ipairs(Detail.pieceRows) do r:Hide() end
   Detail.guideBtn:Hide()
-  Detail.tryBtn:Hide()
+  Detail.trackBtn:Hide()
   Detail.journalBtn:Hide()
   if Detail.modelBG then Detail.modelBG:Hide() end
   if Detail.model then Detail.model:Hide() end
@@ -586,7 +598,11 @@ function Detail.Refresh()
   Detail.guideBtn.arrow:SetShown(#targets > 1)
   W.SetBtn(Detail.guideBtn, #targets > 0)
   Detail.guideBtn:Show()
-  Detail.tryBtn:Show()
+  local tracked = ns.charDB and ns.charDB.trackedSetID == setID
+  Detail.trackBtn._kind = tracked and "primary" or "nav"
+  Detail.trackBtn.label:SetText(tracked and L["Stop"] or L["Track"])
+  W.Paint(Detail.trackBtn, false)
+  Detail.trackBtn:Show()
   Detail.journalBtn:Show()
 
   -- preview pane
@@ -638,16 +654,6 @@ function Detail.OpenGuideMenu()
       root:CreateButton(label, function() Detail.GuideTo(target) end)
     end
   end)
-end
-
---- "Try on": the whole selected variant in the dressing room — the exact call
---- Blizzard's sets journal makes.
-function Detail.TryOn()
-  if not Detail.setID then return end
-  local sources = C_TransmogSets.GetAllSourceIDs and C_TransmogSets.GetAllSourceIDs(Detail.setID)
-  if sources and #sources > 0 and DressUpTransmogSet then
-    pcall(DressUpTransmogSet, sources)
-  end
 end
 
 --- "Journal": open the Blizzard Appearances > Sets tab on this set (best effort;
