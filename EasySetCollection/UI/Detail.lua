@@ -147,6 +147,25 @@ end
 -- preview pane: the player's own character wearing the set (DressUpModel),
 -- with a full-set / owned-pieces-only toggle
 -- ---------------------------------------------------------------------------
+--- (Re)apply the current set's outfit to the model — WITHOUT SetUnit, so it is
+--- safe to call from OnModelLoaded (the login fix: dressing happened before the
+--- player model finished loading, leaving the preview empty).
+local function dressModel(m)
+  local setID = Detail.setID
+  if not setID then return end
+  local mode = ns.db.preview or "full"
+  pcall(m.Undress, m)
+  for _, piece in ipairs(ns.Pieces.For(setID)) do
+    if (mode == "full" or piece.collected) and not Detail.hiddenPieces[piece.sourceID] then
+      local ok = pcall(m.TryOn, m, piece.sourceID)
+      if not ok then
+        local link = ns.Pieces.ItemLink(piece.sourceID, piece.itemID)
+        if link then pcall(m.TryOn, m, link) end
+      end
+    end
+  end
+end
+
 function Detail.BuildPreview(f)
   local UI = ns.UI
   local X, MW = UI.MODEL_X, UI.MODEL_W
@@ -194,6 +213,8 @@ function Detail.BuildPreview(f)
   m:SetScript("OnLeave", GameTooltip_Hide)
   -- the model loses its contents when hidden: force a re-dress on next refresh
   m:SetScript("OnShow", function() Detail.previewKey = nil end)
+  -- re-apply the outfit once the base model actually finishes loading (login)
+  m:SetScript("OnModelLoaded", function(self) dressModel(self) end)
 
   -- toggle row: full set / owned pieces only
   Detail.previewBtns = {}
@@ -238,16 +259,7 @@ function Detail.UpdatePreview(force)
   m:SetUnit("player")
   m:SetRotation(m._rot or 0)
   if m.SetCamDistanceScale then m:SetCamDistanceScale(m._zoom or 1) end
-  pcall(m.Undress, m)
-  for _, piece in ipairs(ns.Pieces.For(setID)) do
-    if (mode == "full" or piece.collected) and not Detail.hiddenPieces[piece.sourceID] then
-      local ok = pcall(m.TryOn, m, piece.sourceID)
-      if not ok then
-        local link = ns.Pieces.ItemLink(piece.sourceID, piece.itemID)
-        if link then pcall(m.TryOn, m, link) end
-      end
-    end
-  end
+  dressModel(m)   -- also re-applied by OnModelLoaded once the model is ready
 end
 
 function Detail.HideWidgets()

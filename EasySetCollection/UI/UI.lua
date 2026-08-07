@@ -203,8 +203,10 @@ end
 function UI.RefreshAll()
   if not (UI.frame and UI.frame:IsShown()) then return end
   UI.UpdateToolbar()
-  ns.SetList.Refresh()
+  -- detail first: it restores the saved selection, which the list needs to
+  -- highlight the row and scroll to it on the first paint of the session
   ns.Detail.Refresh()
+  ns.SetList.Refresh()
 end
 
 function UI.RefreshList()
