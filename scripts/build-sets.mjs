@@ -18,7 +18,7 @@
 //      raid > dungeon > quest > vendor > world > achievement > profession > tradingpost
 //   3. Data/Overrides.lua (`ct` field) wins over everything at runtime.
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import luaparse from 'luaparse';
@@ -139,8 +139,16 @@ function dominant(pieces, get) {
   return best;
 }
 
-// itemID -> questID mapping from the /esc genquests sweep (may be absent)
-const questRewards = gen.questRewards || {};
+// itemID -> questID: Wowhead import (fetch-quest-sources.mjs) filled in with —
+// and overridden by — the in-game /esc genquests sweep (verified client data)
+const questRewards = {};
+const WOWHEAD_SRC = join(ROOT, 'data', 'quest-sources.json');
+if (existsSync(WOWHEAD_SRC)) {
+  for (const [itemID, questID] of Object.entries(JSON.parse(readFileSync(WOWHEAD_SRC, 'utf8')))) {
+    if (questID != null) questRewards[itemID] = questID;
+  }
+}
+Object.assign(questRewards, gen.questRewards || {});
 const qOf = (p) => (p.st === 2 && p.itemID != null ? questRewards[p.itemID] ?? null : null);
 
 const outSets = {};
