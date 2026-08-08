@@ -108,15 +108,18 @@ jobs:
           # Wago wants ONE supported patch per flavor — take the newest of the list.
           patch="${{ steps.meta.outputs.versions }}"
           patch="${patch##*,}"
-          metadata=$(jq -n \
+          # metadata goes through a FILE: curl -F parses inline values (quotes,
+          # semicolons — both live in changelog prose) and truncates the JSON
+          jq -n -c \
             --arg label "${{ steps.meta.outputs.version }}" \
             --arg patch "$patch" \
             --rawfile changelog RELEASE_NOTES.md \
-            '{label: $label, stability: "stable", supported_retail_patch: $patch, changelog: $changelog}')
+            '{label: $label, stability: "stable", supported_retail_patch: $patch, changelog: $changelog}' \
+            > wago-metadata.json
           curl -sS --fail-with-body --retry 3 --retry-delay 10 \
             -H "Authorization: Bearer $WAGO_API_TOKEN" \
             -H "Accept: application/json" \
-            -F "metadata=$metadata" \
+            -F "metadata=<wago-metadata.json" \
             -F "file=@$ZIP" \
             "https://addons.wago.io/api/projects/$WAGO_PROJECT_ID/version"
 
