@@ -52,6 +52,7 @@ L["Stop tracking"] = "Stop tracking"
 L["Tracked set"] = "Tracked set"
 L["Tracked sets"] = "Tracked sets"
 L["Add to the current tracking"] = "Add to the current tracking"
+L["Right-click: add to the current tracking"] = "Right-click: add to the current tracking"
 L["Follow this set in a small movable window: pieces, progress, and a waypoint to the next missing one."] = "Follow this set in a small movable window: pieces, progress, and a waypoint to the next missing one."
 L["Hide collected pieces"] = "Hide collected pieces"
 L["Auto-guide to the next missing piece"] = "Auto-guide to the next missing piece"
@@ -95,6 +96,24 @@ L["Expansion"] = "Expansion"
 L["Alphabetical"] = "Alphabetical"
 L["Progress"] = "Progress"
 
+-- suggest
+L["Suggest"] = "Suggest"
+L["Suggestions"] = "Suggestions"
+L["Pick the closest set you can still farm this week and guide there."] = "Pick the closest set you can still farm this week and guide there."
+L["Right-click: more suggestions"] = "Right-click: more suggestions"
+L["No set to suggest right now."] = "No set to suggest right now."
+L["/esc suggest — guide to the closest farmable set"] = "/esc suggest — guide to the closest farmable set"
+
+-- in-instance assistant
+L["%d set pieces you're missing drop here!"] = "%d set pieces you're missing drop here!"
+L["Announce missing set pieces when entering an instance"] = "Announce missing set pieces when entering an instance"
+L["Show the announcement as a toast (chat is always used)"] = "Show the announcement as a toast (chat is always used)"
+
+-- lockouts
+L["This week"] = "This week"
+L["Cleared this week"] = "Cleared this week"
+L["Hide sets with nothing left to farm this week"] = "Hide sets with nothing left to farm this week"
+
 -- toast
 L["New set piece!"] = "New set piece!"
 L["Set complete!"] = "Set complete!"
@@ -121,6 +140,7 @@ L["Show the piece name"] = "Show the piece name"
 L["Show the set name"] = "Show the set name"
 L["Show the set progress"] = "Show the set progress"
 L["Mention other sets containing the piece"] = "Mention other sets containing the piece"
+L["Also notify for other classes' sets"] = "Also notify for other classes' sets"
 L["Notification preview"] = "Notification preview"
 L["Test"] = "Test"
 L["Show a sample notification (alternates piece / set complete)."] = "Show a sample notification (alternates piece / set complete)."

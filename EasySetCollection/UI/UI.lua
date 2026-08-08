@@ -79,6 +79,32 @@ function UI.Init()
     end
   end)
 
+  -- "Suggest" — the flagship action, right next to the wardrobe icon
+  f.suggestBtn = W.MakeButton(f, "primary")
+  f.suggestBtn:SetSize(84, 22)
+  f.suggestBtn:SetPoint("LEFT", f.icon, "RIGHT", 8, 0)
+  f.suggestBtn.label:SetText(L["Suggest"])
+  f.suggestBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  f.suggestBtn:SetScript("OnClick", function(self, btn)
+    if btn == "RightButton" then
+      ns.Suggest.OpenMenu(self)
+    else
+      ns.Suggest.Pick()
+    end
+  end)
+  f.suggestBtn:SetScript("OnEnter", function(self)
+    W.Paint(self, true)
+    W.OwnTooltip(self, "ANCHOR_BOTTOM")
+    GameTooltip:AddLine(L["Suggest"])
+    GameTooltip:AddLine(L["Pick the closest set you can still farm this week and guide there."], 1, 1, 1, true)
+    GameTooltip:AddLine(L["Right-click: more suggestions"], 0.35, 0.7, 1.0)
+    GameTooltip:Show()
+  end)
+  f.suggestBtn:SetScript("OnLeave", function(self)
+    W.Paint(self, false)
+    GameTooltip:Hide()
+  end)
+
   f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   f.title:SetPoint("TOP", f, "TOP", 0, -15)
   f.title:SetText(W.WHITE .. L["EasySetCollection"] .. "|r")
@@ -240,6 +266,23 @@ function UI.Show()
   if ns.db then ns.db.shown = true end
   UI.frame:Show()
   UI.RefreshAll()
+
+  -- opened inside a dungeon/raid: bring the place's most relevant set forward
+  -- (unless the current selection already drops here)
+  if ns.Assist and ns.Assist.CurrentJid then
+    local jid = ns.Assist.CurrentJid()
+    if jid then
+      local cur = ns.SetList.selected and ns.Sets.GroupFor
+        and ns.Sets.GroupFor(ns.SetList.selected) or nil
+      if not (cur and ns.Assist.GroupDropsIn(cur, jid)) then
+        local g = ns.Assist.BestGroupHere(jid)
+        if g then
+          ns.SetList.Select(g)
+          if ns.SetList.ScrollTo then ns.SetList.ScrollTo(g.baseSetID) end
+        end
+      end
+    end
+  end
 end
 
 function UI.Hide()
@@ -485,6 +528,24 @@ function UI.BuildSettings()
     function() return ns.db.toast and ns.db.toast.showOtherSets ~= false end,
     function(v) ns.db.toast.showOtherSets = v end)
 
+  boolean(notifCat, "toastOtherClasses", L["Also notify for other classes' sets"],
+    function() return ns.db.toast and ns.db.toast.otherClasses == true end,
+    function(v) ns.db.toast.otherClasses = v end)
+
+  boolean(notifCat, "assistEnabled", L["Announce missing set pieces when entering an instance"],
+    function() return ns.db.assist and ns.db.assist.enabled ~= false end,
+    function(v)
+      ns.db.assist = ns.db.assist or {}
+      ns.db.assist.enabled = v
+    end)
+
+  boolean(notifCat, "assistToast", L["Show the announcement as a toast (chat is always used)"],
+    function() return ns.db.assist and ns.db.assist.toast ~= false end,
+    function(v)
+      ns.db.assist = ns.db.assist or {}
+      ns.db.assist.toast = v
+    end)
+
   -- "Test" button: preview the notification with the current settings
   if CreateSettingsButtonInitializer and SettingsPanel and SettingsPanel.GetLayout then
     local initializer = CreateSettingsButtonInitializer(
@@ -548,12 +609,13 @@ showNextToast = function()
   local brd = data.complete and W.C_GREEN or W.C_GOLD_BRD
   p:SetBackdropBorderColor(brd[1], brd[2], brd[3], 1)
   p.icon:SetTexture(data.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
-  local title = data.complete and (W.GREEN .. L["Set complete!"] .. "|r")
-    or (W.AMBER .. L["New set piece!"] .. "|r")
+  local title = data.title
+    or (data.complete and (W.GREEN .. L["Set complete!"] .. "|r")
+    or (W.AMBER .. L["New set piece!"] .. "|r"))
   p.text:SetText(title .. "\n" .. W.WHITE .. (data.line or "") .. "|r")
   p:Show()
 
-  if ns.db.toast.sound and PlaySound and SOUNDKIT then
+  if ns.db.toast.sound and not data.silent and PlaySound and SOUNDKIT then
     pcall(PlaySound, data.complete and SOUNDKIT.UI_LEGENDARY_LOOT_TOAST or SOUNDKIT.UI_EPICLOOT_TOAST)
   end
   if p.timer then p.timer:Cancel() end
@@ -584,6 +646,17 @@ local function buildToastLine(pieceName, setName, n, t, extraSets)
     line = line .. " " .. W.GREY .. string.format(L["(+%d other sets)"], extraSets) .. "|r"
   end
   return line
+end
+
+--- In-instance assistant toast (Modules/Assist.lua): instance name as the
+--- title, missing count as the body. Silent — it's an FYI, not loot.
+function UI.NotifyAssist(title, line, icon)
+  enqueueToast({
+    title = W.AMBER .. (title or "") .. "|r",
+    line = line,
+    icon = icon or "Interface\\Icons\\INV_Misc_Map01",
+    silent = true,
+  })
 end
 
 --- Settings "Test" button: show a sample notification with the current content
@@ -630,6 +703,31 @@ function UI.NotifyNewPiece(sourceID)
 
   local setIDs = C_TransmogSets.GetSetsContainingSourceID(sourceID)
   if not setIDs or #setIDs == 0 then return end
+
+  -- the player's own class's sets are the ones worth naming: in legacy raids
+  -- you loot every armor type, and a cloth bracer belongs to another class's
+  -- set. A piece belonging ONLY to other classes' sets stays silent unless
+  -- the option says otherwise — and then the toast says whose set it is.
+  local classBit = 2 ^ (select(3, UnitClass("player")) - 1)
+  local totalSets = #setIDs
+  local mine, foreign = {}, {}
+  for _, id in ipairs(setIDs) do
+    local i = C_TransmogSets.GetSetInfo and C_TransmogSets.GetSetInfo(id)
+    if i and bit.band(i.classMask or 0, classBit) ~= 0 then
+      mine[#mine + 1] = id
+    else
+      foreign[#foreign + 1] = id
+    end
+  end
+  local isForeign = false
+  if #mine > 0 then
+    setIDs = mine
+  elseif ns.db.toast.otherClasses and #foreign > 0 then
+    setIDs = foreign
+    isForeign = true
+  else
+    return
+  end
   local setID = setIDs[1]
   local info = C_TransmogSets.GetSetInfo and C_TransmogSets.GetSetInfo(setID)
   if not info then return end
@@ -637,6 +735,16 @@ function UI.NotifyNewPiece(sourceID)
   local baseID = info.baseSetID or info.setID
   local baseInfo = (baseID ~= setID) and C_TransmogSets.GetSetInfo(baseID) or info
   local setName = (baseInfo and baseInfo.name) or info.name or "?"
+
+  -- another class's set: say whose it is
+  if isForeign then
+    local g = ns.Sets.GroupFor and ns.Sets.GroupFor(baseID)
+    if g and g.className then
+      setName = setName .. " — " .. g.className
+    elseif g and g.classCount and g.classCount > 1 then
+      setName = setName .. " — " .. string.format(L["%d classes"], g.classCount)
+    end
+  end
 
   local si = C_TransmogCollection.GetSourceInfo(sourceID)
   local itemID = si and si.itemID
@@ -650,7 +758,7 @@ function UI.NotifyNewPiece(sourceID)
   local function push(pieceName)
     enqueueToast({
       icon = icon,
-      line = buildToastLine(pieceName or "?", setName, n, t, #setIDs - 1),
+      line = buildToastLine(pieceName or "?", setName, n, t, totalSets - 1),
       complete = complete,
     })
   end

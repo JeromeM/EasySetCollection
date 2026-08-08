@@ -33,6 +33,7 @@ local function initSavedVars()
   if ns.db.toast.showSet == nil then ns.db.toast.showSet = true end
   if ns.db.toast.showProgress == nil then ns.db.toast.showProgress = true end
   if ns.db.toast.showOtherSets == nil then ns.db.toast.showOtherSets = true end
+  if ns.db.toast.otherClasses == nil then ns.db.toast.otherClasses = false end
   if ns.db.preview == nil then ns.db.preview = "full" end   -- "full" | "owned"
 
   ns.charDB.trackedSets = ns.charDB.trackedSets or {}
@@ -40,6 +41,10 @@ local function initSavedVars()
     table.insert(ns.charDB.trackedSets, ns.charDB.trackedSetID)
     ns.charDB.trackedSetID = nil
   end
+
+  ns.db.assist = ns.db.assist or {}
+  if ns.db.assist.enabled == nil then ns.db.assist.enabled = true end
+  if ns.db.assist.toast == nil then ns.db.assist.toast = true end
 
   ns.db.tracker = ns.db.tracker or {}
   if ns.db.tracker.hideCollected == nil then ns.db.tracker.hideCollected = false end
@@ -64,6 +69,7 @@ local function initSavedVars()
   end
   if fl.otherFaction == nil then fl.otherFaction = false end
   if fl.showLegacy == nil then fl.showLegacy = true end
+  if fl.hideCleared == nil then fl.hideCleared = false end
   -- fl.classID stays nil by default: nil = current class, 0 = all classes
 
   -- `/esc lang`: force the addon chrome to English. The locale files already
@@ -104,6 +110,8 @@ local function queueRefresh()
     -- caches are rebuilt (synchronous DB reads — cheap even for ~4k sets)
     if ns.Sets then ns.Sets.Invalidate() end
     if ns.Pieces then ns.Pieces.WipeProgressCache() end
+    -- lockout verdicts depend on the missing counts: recompute them too
+    if ns.Lockouts then ns.Lockouts.InvalidateSets() end
     if ns.UI and ns.UI.RefreshAll then ns.UI.RefreshAll() end
     -- the tracker lives outside the main window: refresh it even when hidden
     if ns.Tracker and ns.Tracker.Refresh then ns.Tracker.Refresh() end
@@ -121,6 +129,8 @@ f:RegisterEvent("TRANSMOG_COLLECTION_SOURCE_REMOVED")
 f:RegisterEvent("TRANSMOG_SETS_UPDATE_FAVORITE")
 f:RegisterEvent("TRANSMOG_COLLECTION_ITEM_UPDATE")
 f:RegisterEvent("QUEST_DATA_LOAD_RESULT")
+f:RegisterEvent("UPDATE_INSTANCE_INFO")
+f:RegisterEvent("BOSS_KILL")
 f:SetScript("OnEvent", function(_, event, arg1)
   if event == "ADDON_LOADED" then
     if arg1 == ADDON then initSavedVars() end
@@ -132,6 +142,12 @@ f:SetScript("OnEvent", function(_, event, arg1)
     -- the client re-syncs the whole collection after every loading screen and can
     -- replay SOURCE_ADDED in bursts; suppress the loot toast for a few seconds.
     ns.toastGraceUntil = GetTime() + 10
+    -- fresh lockout data (the server answers with UPDATE_INSTANCE_INFO)
+    if ns.Lockouts then ns.Lockouts.Request() end
+    -- in-instance assistant: announce once the map/position has settled
+    C_Timer.After(3, function()
+      if ns.Assist then ns.Assist.Check() end
+    end)
     -- FarstriderLib trail: recompute the next hop once the position settles;
     -- also re-dress the preview model (SetUnit fails during loading screens)
     C_Timer.After(1.5, function()
@@ -147,6 +163,7 @@ f:SetScript("OnEvent", function(_, event, arg1)
     if ns.Nav and ns.Nav.lastTarget and ns.Nav.Available() then
       ns.Nav.GuideTo(ns.Nav.lastTarget)
     end
+    if ns.Assist then ns.Assist.Check() end
 
   elseif event == "TRANSMOG_COLLECTION_UPDATED" then
     queueRefresh()
@@ -174,6 +191,16 @@ f:SetScript("OnEvent", function(_, event, arg1)
       if ns.UI.RefreshList then ns.UI.RefreshList() end
       if ns.UI.RefreshDetail then ns.UI.RefreshDetail() end
     end
+
+  elseif event == "UPDATE_INSTANCE_INFO" then
+    if ns.Lockouts then
+      ns.Lockouts.Rebuild()
+      if ns.UI and ns.UI.RefreshAll then ns.UI.RefreshAll() end
+    end
+
+  elseif event == "BOSS_KILL" then
+    -- a boss just died: re-pull the lockouts so the verdicts follow live
+    if ns.Lockouts then ns.Lockouts.Request() end
   end
 end)
 
@@ -204,6 +231,9 @@ SlashCmdList.EASYSETCOLLECTION = function(msg)
     if ns.Tracker and ns.Detail and ns.Detail.setID then
       ns.Tracker.Toggle(ns.Detail.setID)
     end
+
+  elseif msg == "suggest" then
+    if ns.Suggest and ns.Suggest.Pick then ns.Suggest.Pick() end
 
   elseif msg == "minimap" then
     ns.db.minimap.hide = not ns.db.minimap.hide
@@ -265,6 +295,7 @@ SlashCmdList.EASYSETCOLLECTION = function(msg)
     ns.Print(L["Commands:"])
     print("  " .. L["/esc — open/close the window"])
     print("  " .. L["/esc guide — set a waypoint to the selected set"])
+    print("  " .. L["/esc suggest — guide to the closest farmable set"])
     print("  " .. L["/esc minimap — toggle the minimap button"])
     print("  " .. L["/esc arrow — toggle the auto waypoint arrow"])
     print("  " .. L["/esc lang — toggle English addon texts"])

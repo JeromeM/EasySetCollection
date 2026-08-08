@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-08-08
+
+### Added
+- **In-instance assistant**: entering a dungeon or raid where set pieces you
+  miss still drop shows a toast with the count and prints the detail — boss,
+  piece, set — in the chat frame, once per visit. Toggle in Options →
+  Notifications (the toast independently of the announcement). Opening the
+  window inside an instance selects the place's most relevant set. The Track
+  button's tooltip now mentions its right-click.
+- **Suggest**: a button in the window header (and `/esc suggest`) that picks
+  the closest incomplete set you can still farm this week — instance entrances
+  are ranked by real distance on your continent, sets whose sources are fully
+  cleared this week are skipped — selects it and guides you there. Right-click
+  offers the best suggestions with distance and missing-piece counts.
+- **Weekly lockouts in the browser**: sets whose source instances carry an
+  active lockout show a lock icon in the list (amber = partial progress this
+  week, red = nothing left to farm), with the per-instance detail — difficulty,
+  bosses done, time to reset — in the row tooltip and under the detail pane's
+  progress bar. The "Guide me to..." menu flags cleared destinations, and a
+  new filter (Extras) hides sets with nothing left to farm this week. Variant
+  difficulties are honoured: a Heroic recolor only listens to the Heroic
+  lockout.
+
+### Changed
+- Chat output uses a compact "ESC:" prefix, on every line.
+
+### Fixed
+- The loot toast no longer names another class's set when a looted appearance
+  only belongs to one (legacy raids drop every armor type) — it now sticks to
+  your class's sets, with a Notifications option to include the others (the
+  toast then names the class the set belongs to).
+
 ## [1.0.0] - 2026-08-07
 
 First full release.

@@ -2,7 +2,7 @@
 ## Title: EasySetCollection
 ## Notes: Transmog set collection browser with per-piece sources and farm guidance
 ## Author: JeromeM
-## Version: 1.0.0
+## Version: 1.1.0
 ## X-Curse-Project-ID: 1642958
 ## SavedVariables: EasySetCollectionDB, EasySetCollectionGen
 ## SavedVariablesPerCharacter: EasySetCollectionCharDB
@@ -17,6 +17,9 @@ Data\Overrides.lua
 Modules\Sets.lua
 Modules\Pieces.lua
 Modules\Sources.lua
+Modules\Lockouts.lua
+Modules\Suggest.lua
+Modules\Assist.lua
 Modules\Filters.lua
 Navigation\Arrow.lua
 Navigation\Waypoint.lua

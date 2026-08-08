@@ -36,6 +36,36 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
 - `Modules/Sources.lua` — the three-layer source resolution (overrides > baked >
   live `GetAppearanceSourceDrops` + a lazily-built EJ name index), content-type
   classification, `GuideTargets(setID)` / `NavFor(setID)`, `/esc missing` dump.
+- `Modules/Lockouts.lua` — weekly lockouts (`GetSavedInstanceInfo`, refreshed
+  via `RequestRaidInfo` on PEW/BOSS_KILL → `UPDATE_INSTANCE_INFO`), indexed by
+  localized instance name (joins the EJ names used by Sources' guide targets).
+  `SetState(setID)` → "cleared"/"partial"/nil + per-instance details, cached;
+  variant difficulty (set description ∈ GetDifficultyInfo names) selects the
+  matching lockout only — and is only ENFORCED when the group has ≥2
+  difficulty-named variants (vanilla sets say "Normal", their lockout says
+  "40 Player"). Names join through normKey (lowercase, ’→', punctuation
+  stripped). Verdicts invalidated on collection changes (missing
+  counts move). NOTE: the hideCleared filter resolves GuideTargets for every
+  passing group on first use — if that first toggle hitches with a cold drops
+  cache, precompute or restrict to raid/dungeon buckets.
+- `Modules/Suggest.lua` — "farm the closest thing": sweeps the catalog (own
+  class, obtainable, incomplete, not Lockouts-"cleared"), resolves each
+  candidate's primary guide target to continent world space (EntranceForInstance
+  → GetWorldPosFromMapPos, cached per session) and ranks same-continent by
+  distance, the rest by fewest-missing. Go() selects + scrolls the list
+  (SetList.ScrollTo) and guides. Footer button (left/right click) + `/esc
+  suggest`.
+- `Modules/Assist.lua` — in-instance assistant: on PEW (+3s) / zone change,
+  EJ_GetInstanceForMap resolves where we are; MissingHere(jid) sweeps the
+  class's incomplete groups through Sources.PieceInstanceSet (multi-drop) and
+  PieceEncounterIn; announces once per visit (lastJid) via UI.NotifyAssist
+  (silent toast, title override) + a boss-by-boss chat list. `db.assist.enabled`
+  toggle in Notifications (+ `.toast` for the toast alone). Feeds UI.Show's
+  open-on-current-instance selection (BestGroupHere). Boss TOOLTIPS (unit and
+  Encounter Journal) were attempted and dropped on 2026-08-07 — unit names are
+  secret values in instances (gotcha below) and the EJ boss-button hover hook
+  (EncounterJournal_DisplayInstance + EncounterJournalBossButton<i>) never
+  fired on 12.x; the EJ frame structure needs in-game inspection first.
 - `Modules/Filters.lua` — the filter/sort pipeline (single O(#groups) pass).
 - `Navigation/*` — the waypoint/arrow/routing stack. `Waypoint.lua`:
   `ns.EntranceForInstance(jid)` (live `GetDungeonEntrancesForMap` over override
@@ -72,6 +102,14 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
 - `Core/Core.lua` — saved vars defaults, events, slash `/esc`.
 
 ## API gotchas (verified against wow-ui-source / wiki during design)
+
+- **12.x SECRET VALUES (verified in game 2026-08-07)**: inside instances, unit
+  NAMES reach addons as secret strings by every path (GameTooltip:GetUnit,
+  UnitName, C_TooltipInfo lines) — any index/compare in tainted code throws
+  "attempt to index … a secret string value". Guard with `issecretvalue()`.
+  Consequence: boss unit tooltips cannot be matched by name — any future
+  boss-tooltip feature must key on IDs (GUID npcID, if readable) with baked
+  npc→encounter data, or decorate our own UI instead.
 
 - `TransmogSetPrimaryAppearanceInfo.appearanceID` **is a sourceID**
   (itemModifiedAppearanceID) despite its name — Blizzard's own

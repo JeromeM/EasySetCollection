@@ -9,5 +9,5 @@ ns.L = setmetatable({}, { __index = function(_, k) return k end })
 --- Print a chat-frame message prefixed with the coloured addon tag.
 ---@param msg any  message to display (coerced to string)
 function ns.Print(msg)
-  print("|cffffd200EasySetCollection|r: " .. tostring(msg))
+  print("|cffffd200ESC|r: " .. tostring(msg))
 end

@@ -79,6 +79,16 @@ local function ensureRowWidgets(row)
   row.star:SetSize(16, 16)
   row.star:SetPoint("TOPLEFT", 0, 0)
 
+  -- weekly-lockout indicator, left of the X/N counter, tinted like the row's
+  -- progress (red when nothing is left to farm this week). Ignores the row's
+  -- dimming so it stays readable on untouched (0/N) sets.
+  row.lock = row:CreateTexture(nil, "OVERLAY")
+  if ns.Lockouts then ns.Lockouts.ApplyIcon(row.lock) end
+  row.lock:SetSize(16, 16)
+  row.lock:SetPoint("RIGHT", row.count, "LEFT", -4, 0)
+  row.lock:SetIgnoreParentAlpha(true)
+  row.lock:Hide()
+
   row:SetScript("OnClick", function(self)
     if self.entry then SetList.Select(self.entry) end
   end)
@@ -95,6 +105,20 @@ local function ensureRowWidgets(row)
       GameTooltip:AddDoubleLine(label, n .. "/" .. t,
         0.85, 0.85, 0.9,
         done and 0.38 or 0.96, done and 0.82 or 0.72, done and 0.43 or 0.32)
+    end
+    if ns.Lockouts then
+      local _, details = ns.Lockouts.GroupState(g)
+      if details then
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine(L["This week"], 0.55, 0.55, 0.62)
+        for _, d in ipairs(details) do
+          local left = d.title
+          if d.diffName and d.diffName ~= "" then left = left .. " — " .. d.diffName end
+          local right = d.killed .. "/" .. d.total .. " · " .. ns.Lockouts.ResetText(d)
+          GameTooltip:AddDoubleLine(left, right, 0.9, 0.9, 0.93,
+            d.cleared and 0.95 or 0.96, d.cleared and 0.35 or 0.72, d.cleared and 0.30 or 0.32)
+        end
+      end
     end
     GameTooltip:AddLine(" ")
     GameTooltip:AddLine(L["Click for details"], 0.35, 0.7, 1.0)
@@ -113,6 +137,7 @@ local function paintRow(row)
   row.name:SetText(g.name)
   row.tag:SetText(W.GREY .. tagText(g) .. "|r")
   row.star:SetShown(g.favorite or false)
+
 
   local n, t = ns.Pieces.GroupProgress(g)
   local sel = (g.baseSetID == SetList.selected)
@@ -139,6 +164,18 @@ local function paintRow(row)
     row.barFill:SetColorTexture(0, 0, 0, 0)
   end
   row.barFill:SetWidth(math.max(0.01, 52 * (t > 0 and n / t or 0)))
+
+  -- lockout indicator: red when nothing is left to farm this week, otherwise
+  -- the same color as the row's progress (amber started / light grey untouched)
+  local lockState = ns.Lockouts and ns.Lockouts.GroupState(g) or nil
+  row.lock:SetShown(lockState ~= nil)
+  if lockState == "cleared" then
+    row.lock:SetVertexColor(0.95, 0.35, 0.30)
+  elseif n > 0 then
+    row.lock:SetVertexColor(W.C_AMBER_TX[1], W.C_AMBER_TX[2], W.C_AMBER_TX[3])
+  else
+    row.lock:SetVertexColor(0.85, 0.85, 0.9)
+  end
 end
 
 local function initRow(row, entry)
@@ -214,6 +251,19 @@ function SetList.Select(g)
   SetList.RepaintRows()
 end
 
+--- Bring a group's row into view (programmatic selection — e.g. Suggest).
+--- No-op when the group is filtered out of the current list.
+function SetList.ScrollTo(baseSetID)
+  if not (SetList.box and SetList.box.ScrollToElementDataIndex) then return end
+  for i, g in ipairs(SetList.current or {}) do
+    if g.baseSetID == baseSetID then
+      pcall(SetList.box.ScrollToElementDataIndex, SetList.box, i,
+        ScrollBoxConstants and ScrollBoxConstants.AlignCenter or nil)
+      return
+    end
+  end
+end
+
 --- Re-apply the filters and feed the scroll list; drives the loading/empty
 --- states and the footer counts.
 function SetList.Refresh()
@@ -221,6 +271,7 @@ function SetList.Refresh()
   if not f then return end
 
   local list, complete = ns.Filters.Apply()
+  SetList.current = list
 
   if not list then
     -- collection data not ready yet (login): show a message and retry shortly;

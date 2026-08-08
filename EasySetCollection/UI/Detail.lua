@@ -44,6 +44,13 @@ function Detail.Build(f)
 
   Detail.bar = W.MakeProgressBar(f, DW, 16)
 
+  -- weekly-lockout line (shown under the progress bar when a lockout touches
+  -- the current variant's guide targets)
+  Detail.lockLine = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  Detail.lockLine:SetWidth(DW)
+  Detail.lockLine:SetJustifyH("LEFT")
+  Detail.lockLine:SetWordWrap(false)
+
   Detail.variantBtns = {}
   Detail.pieceRows = {}
   Detail.overflow = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -126,6 +133,7 @@ function Detail.Build(f)
     ns.Widgets.OwnTooltip(self, "ANCHOR_TOP")
     GameTooltip:AddLine(L["Track"])
     GameTooltip:AddLine(L["Follow this set in a small movable window: pieces, progress, and a waypoint to the next missing one."], 1, 1, 1, true)
+    GameTooltip:AddLine(L["Right-click: add to the current tracking"], 0.35, 0.7, 1.0)
     GameTooltip:Show()
   end)
   Detail.trackBtn:SetScript("OnLeave", function(self)
@@ -290,6 +298,7 @@ function Detail.HideWidgets()
   Detail.name:Hide()
   Detail.sub:Hide()
   Detail.bar:Hide()
+  Detail.lockLine:Hide()
   Detail.overflow:Hide()
   Detail.actionPanel:Hide()
   for _, b in ipairs(Detail.variantBtns) do b:Hide() end
@@ -561,6 +570,30 @@ function Detail.Refresh()
   Detail.bar:Show()
   y = y - 24
 
+  -- weekly lockout line ("This week: Karazhan (Heroic) 9/11 · 2 d 4 h")
+  Detail.lockLine:Hide()
+  if ns.Lockouts then
+    local lockState, lockDetails = ns.Lockouts.SetState(setID)
+    if lockDetails then
+      local bits = {}
+      for i, d in ipairs(lockDetails) do
+        if i > 2 then bits[#bits + 1] = "…" break end
+        local label = d.title
+        if d.diffName and d.diffName ~= "" then label = label .. " (" .. d.diffName .. ")" end
+        bits[#bits + 1] = string.format("%s %d/%d · %s",
+          label, d.killed, d.total, ns.Lockouts.ResetText(d))
+      end
+      local color = (lockState == "cleared") and "|cfff25a4d"
+        or (lockState == "partial") and W.AMBER or W.GREY
+      Detail.lockLine:ClearAllPoints()
+      Detail.lockLine:SetPoint("TOPLEFT", X, y)
+      Detail.lockLine:SetText(ns.Lockouts.IconMarkup(12) .. " " .. color
+        .. string.format(L["%s: %s"], L["This week"], table.concat(bits, " · ")) .. "|r")
+      Detail.lockLine:Show()
+      y = y - 18
+    end
+  end
+
   -- variant selector (segmented), hidden when the set has a single variant.
   -- Labels are clamped inside their segment (old sets carry sentence-long
   -- variant descriptions) — the full text + progress live in the tooltip.
@@ -696,12 +729,22 @@ function Detail.OpenGuideMenu()
   end
   local targets = ns.Sources.GuideTargets(Detail.setID)
   if #targets == 0 then return end
+  local clearedBy = {}
+  if ns.Lockouts then
+    local _, details = ns.Lockouts.SetState(Detail.setID)
+    for _, d in ipairs(details or {}) do
+      if d.cleared then clearedBy[d.title] = true end
+    end
+  end
   MenuUtil.CreateContextMenu(Detail.guideBtn, function(_, root)
     root:CreateTitle(L["Guide me to..."])
     for _, target in ipairs(targets) do
       local label = target.title or "?"
       if target.missing and target.missing > 0 then
         label = label .. "  " .. W.GREY .. string.format(L["(%d pieces)"], target.missing) .. "|r"
+      end
+      if clearedBy[target.title] then
+        label = label .. "  |cfff25a4d" .. L["Cleared this week"] .. "|r"
       end
       root:CreateButton(label, function() Detail.GuideTo(target) end)
     end

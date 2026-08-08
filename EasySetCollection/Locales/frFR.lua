@@ -50,6 +50,7 @@ L["Stop tracking"] = "Ne plus suivre"
 L["Tracked set"] = "Ensemble suivi"
 L["Tracked sets"] = "Ensembles suivis"
 L["Add to the current tracking"] = "Ajouter au suivi existant"
+L["Right-click: add to the current tracking"] = "Clic droit : ajouter au suivi existant"
 L["Follow this set in a small movable window: pieces, progress, and a waypoint to the next missing one."] = "Suit cet ensemble dans une petite fenêtre déplaçable : pièces, progression, et un point de destination vers la prochaine pièce manquante."
 L["Hide collected pieces"] = "Masquer les pièces obtenues"
 L["Auto-guide to the next missing piece"] = "Guider automatiquement vers la prochaine pièce manquante"
@@ -93,6 +94,24 @@ L["Expansion"] = "Extension"
 L["Alphabetical"] = "Alphabétique"
 L["Progress"] = "Progression"
 
+-- suggest
+L["Suggest"] = "Suggérer"
+L["Suggestions"] = "Suggestions"
+L["Pick the closest set you can still farm this week and guide there."] = "Choisit l'ensemble incomplet le plus proche encore farmable cette semaine et vous y guide."
+L["Right-click: more suggestions"] = "Clic droit : plus de suggestions"
+L["No set to suggest right now."] = "Aucun ensemble à suggérer pour le moment."
+L["/esc suggest — guide to the closest farmable set"] = "/esc suggest — guide vers l'ensemble farmable le plus proche"
+
+-- in-instance assistant
+L["%d set pieces you're missing drop here!"] = "%d pièces d'ensembles qu'il vous manque tombent ici !"
+L["Announce missing set pieces when entering an instance"] = "Annoncer les pièces d'ensembles manquantes en entrant dans une instance"
+L["Show the announcement as a toast (chat is always used)"] = "Afficher l'annonce en notification toast (le chat est toujours utilisé)"
+
+-- lockouts
+L["This week"] = "Cette semaine"
+L["Cleared this week"] = "Nettoyée cette semaine"
+L["Hide sets with nothing left to farm this week"] = "Masquer les ensembles sans rien à farmer cette semaine"
+
 -- toast
 L["New set piece!"] = "Nouvelle pièce d'ensemble !"
 L["Set complete!"] = "Ensemble complet !"
@@ -119,6 +138,7 @@ L["Show the piece name"] = "Afficher le nom de la pièce"
 L["Show the set name"] = "Afficher le nom de l'ensemble"
 L["Show the set progress"] = "Afficher la progression de l'ensemble"
 L["Mention other sets containing the piece"] = "Mentionner les autres ensembles contenant la pièce"
+L["Also notify for other classes' sets"] = "Notifier aussi les ensembles des autres classes"
 L["Notification preview"] = "Aperçu de la notification"
 L["Test"] = "Tester"
 L["Show a sample notification (alternates piece / set complete)."] = "Affiche une notification d'exemple (alterne pièce / ensemble complet)."

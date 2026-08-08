@@ -110,6 +110,9 @@ function FP.Build()
   addRow(L["Unobtainable sets"],
     function() return fl.showLegacy ~= false end,
     function(v) fl.showLegacy = v end)
+  addRow(L["Hide sets with nothing left to farm this week"],
+    function() return fl.hideCleared == true end,
+    function(v) fl.hideCleared = v end)
 
   y = y - 10
   local reset = W.MakeButton(p, "warn")

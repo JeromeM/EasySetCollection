@@ -89,6 +89,15 @@ local function ensureEJIndex()
   return ejIndex
 end
 
+--- journalInstanceID for a localized instance name (EJ name index), nil when
+--- unknown. Used by the in-instance assistant as a fallback when the map→EJ
+--- resolution has no answer.
+function Sources.InstanceByName(name)
+  if not name then return nil end
+  local idx = ensureEJIndex()
+  return idx and idx[name] or nil
+end
+
 --- Is this instance a raid? Baked flag first, then the EJ index.
 function Sources.InstanceIsRaid(jid)
   local inst = EasySetCollectionInstances and EasySetCollectionInstances[jid]
@@ -210,6 +219,40 @@ function Sources.PieceSourceText(setID, piece)
     end
   end
   return Sources.SourceLabel(piece.sourceType)
+end
+
+--- EVERY instance a piece can drop in: the resolved primary plus the live
+--- multi-drop locations (WotLK tiers fall in Naxxramas AND the Vault of
+--- Archavon — both count).
+---@return table  set of journalInstanceID = true
+function Sources.PieceInstanceSet(setID, piece)
+  local jids = {}
+  local primary = Sources.PieceInstance(setID, piece)
+  if primary then jids[primary] = true end
+  if piece.sourceType == ns.SRC.BOSS then
+    local drops = dropsFor(piece.sourceID)
+    if drops then
+      local idx = ensureEJIndex()
+      for _, d in ipairs(drops) do
+        local j2 = idx and d.instance and idx[d.instance]
+        if j2 then jids[j2] = true end
+      end
+    end
+  end
+  return jids
+end
+
+--- The encounter dropping a piece inside a SPECIFIC instance (localized) —
+--- the resolved-first drop entry can belong to another instance.
+function Sources.PieceEncounterIn(setID, piece, jid)
+  if piece.sourceType ~= ns.SRC.BOSS then return nil end
+  local drops = dropsFor(piece.sourceID)
+  if not drops then return nil end
+  local want = Sources.InstanceName(jid)
+  for _, d in ipairs(drops) do
+    if d.instance == want then return d.encounter end
+  end
+  return drops[1] and drops[1].encounter
 end
 
 --- Hierarchy parts of a piece for the tracker tree: the LOCATION (instance
@@ -510,7 +553,7 @@ function Sources.GuideTargets(setID)
           or (ov.npc and L[ov.npc]) or (info and info.name) or "?",
       }
     elseif ov.j then
-      out[#out + 1] = { jid = ov.j, title = Sources.InstanceName(ov.j), missing = 0 }
+      out[#out + 1] = { jid = ov.j, title = Sources.InstanceName(ov.j), missing = 0, pieces = 0 }
       byJid[ov.j] = out[#out]
     end
   end
@@ -521,19 +564,7 @@ function Sources.GuideTargets(setID)
   -- Archavon), so every drop location counts, not just the resolved-first one.
   local instTargets = {}
   for _, piece in ipairs(ns.Pieces.For(setID)) do
-    local jids = {}
-    local primary = Sources.PieceInstance(setID, piece)
-    if primary then jids[primary] = true end
-    if piece.sourceType == ns.SRC.BOSS then
-      local drops = dropsFor(piece.sourceID)
-      if drops then
-        local idx = ensureEJIndex()
-        for _, d in ipairs(drops) do
-          local j2 = idx and d.instance and idx[d.instance]
-          if j2 then jids[j2] = true end
-        end
-      end
-    end
+    local jids = Sources.PieceInstanceSet(setID, piece)
     for jid in pairs(jids) do
       local t = byJid[jid]
       if not t then
