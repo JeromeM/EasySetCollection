@@ -75,6 +75,12 @@ function Assist.GroupDropsIn(g, jid)
   return (piecesHere(g, jid, currentDifficultyName())) > 0
 end
 
+--- The variant of a group matching the current instance's difficulty (the
+--- one the window should open on while standing inside).
+function Assist.VariantHere(g)
+  return variantFor(g, currentDifficultyName())
+end
+
 --- The group to bring forward when opening the window inside an instance:
 --- the class's set with the most missing pieces HERE (most pieces dropping
 --- here as tie-break). Nil when nothing relevant drops here.
