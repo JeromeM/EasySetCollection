@@ -8,17 +8,16 @@ name: Release
 # locally (generator stripped, data baked in) — then uploaded to CurseForge and
 # attached to a GitHub Release tagged vX.Y.Z.
 #
-# Required repo config (Settings -> Secrets and variables -> Actions):
-#   Secrets:   CF_API_KEY     (CurseForge API token — without it the CurseForge
-#                              upload is skipped, the GitHub release still happens)
-#              WAGO_API_TOKEN (Wago Addons API token — upload skipped without it)
-#              WOWI_API_TOKEN (WoWInterface API token — upload skipped without it)
-#   Variables: GAME_VERSIONS   (optional, overrides the default list below)
-#              WAGO_PROJECT_ID (Wago project id/slug — upload skipped without it)
-#              WOWI_ADDON_ID   (WoWInterface addon id — upload skipped without it)
+# Required repo config (Settings -> Secrets and variables -> Actions), all as
+# SECRETS (each platform's upload is skipped while its pair is missing):
+#   CF_API_KEY                        CurseForge API token
+#   WAGO_API_TOKEN + WAGO_PROJECT_ID  Wago Addons token + project id/slug
+#   WOWI_API_TOKEN + WOWI_ADDON_ID    WoWInterface token + addon id
+#   Variables: GAME_VERSIONS (optional, overrides the default list below)
 # and Settings -> Actions -> Workflow permissions: "Read and write".
-# Wago/WoWInterface need the project created and a first file uploaded manually
-# on their site; the steps below handle every later release.
+# A MANUAL run (workflow_dispatch) re-uploads the CURRENT version to Wago and
+# WoWInterface only — CurseForge and the GitHub release stay guarded by the
+# tag — the repair lever when those credentials arrive after a release.
 on:
   push:
     branches: [main]
@@ -36,7 +35,9 @@ jobs:
     env:
       CF_API_KEY: ${{ secrets.CF_API_KEY }}
       WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
+      WAGO_PROJECT_ID: ${{ secrets.WAGO_PROJECT_ID }}
       WOWI_API_TOKEN: ${{ secrets.WOWI_API_TOKEN }}
+      WOWI_ADDON_ID: ${{ secrets.WOWI_ADDON_ID }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -65,7 +66,7 @@ jobs:
           fi
 
       - name: Build package
-        if: steps.meta.outputs.exists == 'false'
+        if: steps.meta.outputs.exists == 'false' || github.event_name == 'workflow_dispatch'
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq zip
           bash scripts/package.sh
@@ -73,7 +74,7 @@ jobs:
 
       - name: Extract changelog notes
         id: notes
-        if: steps.meta.outputs.exists == 'false'
+        if: steps.meta.outputs.exists == 'false' || github.event_name == 'workflow_dispatch'
         run: |
           awk -v v="${{ steps.meta.outputs.version }}" '
             $0 ~ ("^## \\[" v "\\]") {p=1; next}
@@ -102,7 +103,7 @@ jobs:
           changelog_type: markdown
 
       - name: Upload to Wago Addons
-        if: steps.meta.outputs.exists == 'false' && env.WAGO_API_TOKEN != '' && vars.WAGO_PROJECT_ID != ''
+        if: (steps.meta.outputs.exists == 'false' || github.event_name == 'workflow_dispatch') && env.WAGO_API_TOKEN != '' && env.WAGO_PROJECT_ID != ''
         run: |
           # Wago wants ONE supported patch per flavor — take the newest of the list.
           patch="${{ steps.meta.outputs.versions }}"
@@ -117,14 +118,14 @@ jobs:
             -H "Accept: application/json" \
             -F "metadata=$metadata" \
             -F "file=@$ZIP" \
-            "https://addons.wago.io/api/projects/${{ vars.WAGO_PROJECT_ID }}/version"
+            "https://addons.wago.io/api/projects/$WAGO_PROJECT_ID/version"
 
       - name: Upload to WoWInterface
-        if: steps.meta.outputs.exists == 'false' && env.WOWI_API_TOKEN != '' && vars.WOWI_ADDON_ID != ''
+        if: (steps.meta.outputs.exists == 'false' || github.event_name == 'workflow_dispatch') && env.WOWI_API_TOKEN != '' && env.WOWI_ADDON_ID != ''
         run: |
           curl -sS --fail-with-body --retry 3 --retry-delay 10 \
             -H "x-api-token: $WOWI_API_TOKEN" \
-            -F "id=${{ vars.WOWI_ADDON_ID }}" \
+            -F "id=$WOWI_ADDON_ID" \
             -F "version=${{ steps.meta.outputs.version }}" \
             -F "compatible=${{ steps.meta.outputs.versions }}" \
             -F "changelog=<RELEASE_NOTES.md" \
