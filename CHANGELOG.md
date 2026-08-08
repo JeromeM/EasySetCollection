@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Lockouts join their instance by numeric id instead of localized name — some
+  instances are named differently in the saved-instances list and in the
+  Encounter Journal ("Temple noir" vs "Le Temple noir" in French), which left
+  their sets without lock state.
+
 ## [1.1.0] - 2026-08-08
 
 ### Added

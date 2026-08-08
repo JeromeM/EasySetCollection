@@ -12,7 +12,21 @@ ns.Lockouts = ns.Lockouts or {}
 local Lockouts = ns.Lockouts
 
 local locks          -- [normKey(instance name)] = { { diffName, total, killed, expires }, … }; nil until the first UPDATE_INSTANCE_INFO
+local locksByMap     -- [instanceMapID] = same entry lists — the locale-proof primary index
 local setCache = {}  -- [setID] = { state, details } | false (verdict: nothing relevant)
+
+-- instanceMapID for a journal instance (EJ_GetInstanceInfo's 10th return),
+-- cached: it is the same id GetSavedInstanceInfo reports, making the
+-- lockout join purely numeric — localized names disagree between the two
+-- lists ("Temple noir" saved vs "Le Temple noir" in the Journal).
+local jidToMap = {}
+local function instanceMapFor(jid)
+  local cached = jidToMap[jid]
+  if cached ~= nil then return cached or nil end
+  local mapID = EJ_GetInstanceInfo and select(10, EJ_GetInstanceInfo(jid)) or nil
+  jidToMap[jid] = mapID or false
+  return mapID
+end
 
 --- Join key for an instance name: lowercased, apostrophe variants unified,
 --- spacing/punctuation stripped — the saved-instances list and the Encounter
@@ -29,24 +43,30 @@ function Lockouts.Request()
   if RequestRaidInfo then RequestRaidInfo() end
 end
 
---- Rebuild the lockout index from GetSavedInstanceInfo (on UPDATE_INSTANCE_INFO).
+--- Rebuild the lockout indexes from GetSavedInstanceInfo (on UPDATE_INSTANCE_INFO).
 function Lockouts.Rebuild()
-  locks = {}
+  locks, locksByMap = {}, {}
   wipe(setCache)
   local now = GetTime()
   for i = 1, (GetNumSavedInstances and GetNumSavedInstances() or 0) do
-    local name, _, reset, _, locked, extended, _, _, _, diffName, numEnc, encProgress =
-      GetSavedInstanceInfo(i)
+    local name, _, reset, _, locked, extended, _, _, _, diffName, numEnc, encProgress,
+      _, instanceID = GetSavedInstanceInfo(i)
     if name and (locked or extended) and reset and reset > 0 then
-      local key = normKey(name)
-      local list = locks[key]
-      if not list then list = {}; locks[key] = list end
-      list[#list + 1] = {
+      local entry = {
         diffName = diffName,
         total    = numEnc or 0,
         killed   = encProgress or 0,
         expires  = now + reset,
       }
+      if instanceID and instanceID ~= 0 then
+        local byMap = locksByMap[instanceID]
+        if not byMap then byMap = {}; locksByMap[instanceID] = byMap end
+        byMap[#byMap + 1] = entry
+      end
+      local key = normKey(name)
+      local list = locks[key]
+      if not list then list = {}; locks[key] = list end
+      list[#list + 1] = entry
     end
   end
 end
@@ -130,7 +150,10 @@ function Lockouts.SetState(setID)
     if t.jid then
       local farm = (t.missing or 0) > 0
       if farm then relevant = relevant + 1 end
-      local list = locks[normKey(ns.Sources.InstanceName(t.jid))]
+      -- numeric join first (locale-proof), normalized name as the fallback
+      local mapID = instanceMapFor(t.jid)
+      local list = (mapID and locksByMap[mapID])
+        or locks[normKey(ns.Sources.InstanceName(t.jid))]
       local lk = list and pickLock(list, desc)
       if lk then
         local full = lk.total > 0 and lk.killed >= lk.total
