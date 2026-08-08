@@ -133,7 +133,8 @@ function Assist.MissingHere(jid)
            and ns.Sources.PieceMatchesDifficulty(setID, piece, jid, facets) then
           out[#out + 1] = {
             boss = ns.Sources.PieceEncounterIn(setID, piece, jid),
-            pieceName = piece.name or ns.Pieces.SlotLabel(piece.itemID),
+            pieceName = piece.name,   -- nil until the item loads (async)
+            itemID = piece.itemID,
             setName = g.name,
             setID = setID,
           }
@@ -169,19 +170,49 @@ function Assist.Check()
   if #list == 0 then return end
 
   local instName = ns.Sources.InstanceName(jid)
-  local line = string.format(L["%d set pieces you're missing drop here!"], #list)
-  if ns.db.assist.toast ~= false and ns.UI and ns.UI.NotifyAssist then
-    ns.UI.NotifyAssist(instName, line, ns.Pieces.SetIcon(list[1].setID))
+
+  local announced = false
+  local function announce()
+    if announced then return end
+    announced = true
+    local line = (#list == 1) and L["A set piece you're missing drops here!"]
+      or string.format(L["%d set pieces you're missing drop here!"], #list)
+    if ns.db.assist.toast ~= false and ns.UI and ns.UI.NotifyAssist then
+      ns.UI.NotifyAssist(instName, line, ns.Pieces.SetIcon(list[1].setID))
+    end
+    ns.Print(instName .. " — " .. line)
+    local shown = math.min(#list, 12)
+    for i = 1, shown do
+      local e = list[i]
+      local pieceName = e.pieceName or ns.Pieces.SlotLabel(e.itemID) or "?"
+      ns.Print(string.format("|cffe9e9ec%s|r — %s |cff8a8a8a(%s)|r",
+        e.boss or L["Unknown source"], pieceName, e.setName or "?"))
+    end
+    if #list > shown then
+      ns.Print(string.format(L["(+%d more pieces)"], #list - shown))
+    end
   end
 
-  ns.Print(instName .. " — " .. line)
-  local shown = math.min(#list, 12)
-  for i = 1, shown do
-    local e = list[i]
-    ns.Print(string.format("|cffe9e9ec%s|r — %s |cff8a8a8a(%s)|r",
-      e.boss or L["Unknown source"], e.pieceName or "?", e.setName or "?"))
+  -- item names resolve asynchronously: wait for the stragglers (bounded to
+  -- 2s, slot-label fallback) so the lines name the pieces, not their slots
+  local waiters = {}
+  if Item then
+    for _, e in ipairs(list) do
+      if not e.pieceName and e.itemID then waiters[#waiters + 1] = e end
+    end
   end
-  if #list > shown then
-    ns.Print(string.format(L["(+%d more pieces)"], #list - shown))
+  local pending = #waiters
+  for _, e in ipairs(waiters) do
+    local item = Item:CreateFromItemID(e.itemID)
+    item:ContinueOnItemLoad(function()
+      e.pieceName = item:GetItemName() or e.pieceName
+      pending = pending - 1
+      if pending == 0 then announce() end
+    end)
+  end
+  if pending == 0 then
+    announce()
+  else
+    C_Timer.After(2, announce)
   end
 end
