@@ -94,11 +94,26 @@ end
 
 --- The lockout that speaks for an instance: the variant difficulty's own
 --- lockout when the variant has one (a foreign difficulty's lockout neither
---- locks nor informs it), otherwise the most-progressed lockout.
+--- locks nor informs it), otherwise the most-progressed lockout. Difficulty
+--- names are matched exactly first, then by FACETS — a "Heroic" variant
+--- listens to a "25 Player (Heroic)" lockout — preferring one with bosses
+--- still up (a piece dropping in 10 AND 25 stays farmable while either is).
 local function pickLock(list, desc)
   if desc then
     for _, lk in ipairs(list) do
       if lk.diffName == desc then return lk end
+    end
+    local df = ns.Sources.FacetsForDifficultyName(desc)
+    if df then
+      local firstCompat
+      for _, lk in ipairs(list) do
+        local lf = ns.Sources.FacetsForDifficultyName(lk.diffName)
+        if lf and ns.Sources.FacetsCompatible(df, lf) then
+          if lk.total == 0 or lk.killed < lk.total then return lk end
+          firstCompat = firstCompat or lk
+        end
+      end
+      if firstCompat then return firstCompat end
     end
     return nil
   end

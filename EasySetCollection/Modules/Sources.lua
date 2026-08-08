@@ -255,12 +255,11 @@ function Sources.PieceEncounterIn(setID, piece, jid)
   return drops[1] and drops[1].encounter
 end
 
---- Does a piece drop in this instance ON this difficulty? Permissive: unknown
---- drop data or an entry without difficulties never excludes. diffName lives
---- in the GetDifficultyInfo name space ("10 Player", "Heroic", …), the same
---- one the drop entries use.
-function Sources.PieceMatchesDifficulty(setID, piece, jid, diffName)
-  if not diffName or piece.sourceType ~= ns.SRC.BOSS then return true end
+--- Does a piece drop in this instance ON a difficulty compatible with the
+--- given facets? Permissive: unknown drop data, an entry without
+--- difficulties, or an unrecognized difficulty name never excludes.
+function Sources.PieceMatchesDifficulty(setID, piece, jid, facets)
+  if not facets or piece.sourceType ~= ns.SRC.BOSS then return true end
   local drops = dropsFor(piece.sourceID)
   if not drops then return true end
   local want = Sources.InstanceName(jid)
@@ -268,7 +267,9 @@ function Sources.PieceMatchesDifficulty(setID, piece, jid, diffName)
     if d.instance == want then
       if not d.difficulties or #d.difficulties == 0 then return true end
       for _, diff in ipairs(d.difficulties) do
-        if diff == diffName then return true end
+        if Sources.FacetsCompatible(Sources.FacetsForDifficultyName(diff), facets) then
+          return true
+        end
       end
       return false
     end
@@ -362,6 +363,57 @@ local function classifyLive(g)
 end
 
 -- --- default variant --------------------------------------------------------
+
+-- --- difficulty facets --------------------------------------------------------
+-- A difficulty is a raid SIZE plus a TIER; the pieces of the puzzle name them
+-- inconsistently ("25 Player (Heroic)" for the instance you're in, "Heroic"
+-- on a variant, "25 Player" on a drop entry). Two difficulties are COMPATIBLE
+-- when no facet conflicts — an unknown facet is a wildcard.
+
+local DIFF_FACETS = {
+  [1]  = { tier = "normal" },                 -- dungeon Normal
+  [2]  = { tier = "heroic" },                 -- dungeon Heroic
+  [23] = { tier = "mythic" },                 -- dungeon Mythic
+  [3]  = { size = 10, tier = "normal" },      -- 10 Player
+  [4]  = { size = 25, tier = "normal" },      -- 25 Player
+  [5]  = { size = 10, tier = "heroic" },      -- 10 Player (Heroic)
+  [6]  = { size = 25, tier = "heroic" },      -- 25 Player (Heroic)
+  [9]  = { size = 40, tier = "normal" },      -- 40 Player
+  [14] = { tier = "normal" },                 -- raid Normal (flex)
+  [15] = { tier = "heroic" },                 -- raid Heroic (flex)
+  [16] = { tier = "mythic" },                 -- raid Mythic
+  [7]  = { tier = "lfr" },                    -- LFR (legacy)
+  [17] = { tier = "lfr" },                    -- LFR
+}
+
+--- Facets of a difficultyID (nil = unknown difficulty, treated as wildcard).
+function Sources.DifficultyFacets(diffID)
+  return diffID and DIFF_FACETS[diffID] or nil
+end
+
+local nameFacets   -- [localized difficulty name] = facets (built once)
+
+--- Facets of a LOCALIZED difficulty name (variant descriptions, drop entries,
+--- lockout difficultyName — they all live in the GetDifficultyInfo space).
+function Sources.FacetsForDifficultyName(name)
+  if not name or name == "" then return nil end
+  if not nameFacets then
+    nameFacets = {}
+    for id, f in pairs(DIFF_FACETS) do
+      local n = GetDifficultyInfo and GetDifficultyInfo(id)
+      if n and not nameFacets[n] then nameFacets[n] = f end
+    end
+  end
+  return nameFacets[name]
+end
+
+--- No conflicting facet (nil side = wildcard, always compatible).
+function Sources.FacetsCompatible(a, b)
+  if not a or not b then return true end
+  if a.size and b.size and a.size ~= b.size then return false end
+  if a.tier and b.tier and a.tier ~= b.tier then return false end
+  return true
+end
 
 -- difficultyIDs in DEFAULT-SELECTION preference order: Normal first (dungeon,
 -- raid, then 10-player before 25-player and 40), Heroic, Mythic, LFR last.

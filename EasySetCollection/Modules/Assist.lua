@@ -34,34 +34,34 @@ function Assist.CurrentJid()
   return currentJid()
 end
 
---- The difficulty the player's current instance runs on (GetDifficultyInfo
---- name space — the same strings variant descriptions and drop entries use).
-local function currentDifficultyName()
+--- Facets of the difficulty the player's current instance runs on (nil when
+--- unknown — everything then behaves permissively).
+local function currentDifficultyFacets()
   local _, _, diffID = GetInstanceInfo()
-  if diffID and diffID ~= 0 and GetDifficultyInfo then
-    return (GetDifficultyInfo(diffID))
-  end
+  return ns.Sources.DifficultyFacets(diffID)
 end
 
---- The variant to inspect for a group: the one matching the instance's
---- difficulty when such a recolor exists, the default variant otherwise.
-local function variantFor(g, diffName)
-  if diffName then
+--- The variant to inspect for a group: the first one whose difficulty
+--- description is COMPATIBLE with the instance's facets ("Heroic" matches a
+--- "25 Player (Heroic)" instance), the default variant otherwise.
+local function variantFor(g, facets)
+  if facets then
     for _, v in ipairs(g.variants) do
-      if v.description == diffName then return v.setID end
+      local vf = ns.Sources.FacetsForDifficultyName(v.description)
+      if vf and ns.Sources.FacetsCompatible(vf, facets) then return v.setID end
     end
   end
   return ns.Sources.DefaultVariant(g) or g.baseSetID
 end
 
---- Pieces of a group dropping in an instance ON the given difficulty.
+--- Pieces of a group dropping in an instance ON a compatible difficulty.
 ---@return number here, number missing
-local function piecesHere(g, jid, diffName)
-  local setID = variantFor(g, diffName)
+local function piecesHere(g, jid, facets)
+  local setID = variantFor(g, facets)
   local here, missing = 0, 0
   for _, piece in ipairs(ns.Pieces.For(setID)) do
     if ns.Sources.PieceInstanceSet(setID, piece)[jid]
-       and ns.Sources.PieceMatchesDifficulty(setID, piece, jid, diffName) then
+       and ns.Sources.PieceMatchesDifficulty(setID, piece, jid, facets) then
       here = here + 1
       if not piece.collected then missing = missing + 1 end
     end
@@ -72,13 +72,13 @@ end
 --- Does a group drop anything in the CURRENT instance (on its difficulty)?
 --- Used to leave the user's selection alone when it already belongs here.
 function Assist.GroupDropsIn(g, jid)
-  return (piecesHere(g, jid, currentDifficultyName())) > 0
+  return (piecesHere(g, jid, currentDifficultyFacets())) > 0
 end
 
 --- The variant of a group matching the current instance's difficulty (the
 --- one the window should open on while standing inside).
 function Assist.VariantHere(g)
-  return variantFor(g, currentDifficultyName())
+  return variantFor(g, currentDifficultyFacets())
 end
 
 --- The group to bring forward when opening the window inside an instance:
@@ -89,13 +89,13 @@ function Assist.BestGroupHere(jid)
   if not cat then return nil end
   local classID = select(3, UnitClass("player"))
   local faction = UnitFactionGroup("player")
-  local diffName = currentDifficultyName()
+  local facets = currentDifficultyFacets()
   local best, bestMissing, bestHere
   for _, g in ipairs(cat.order) do
     if not g.hidden and not g.legacy
       and (not classID or bit.band(g.classMask or 0, 2 ^ (classID - 1)) ~= 0)
       and not (g.requiredFaction and faction and g.requiredFaction ~= faction) then
-      local here, missing = piecesHere(g, jid, diffName)
+      local here, missing = piecesHere(g, jid, facets)
       if here > 0 and (not best
           or missing > bestMissing
           or (missing == bestMissing and here > bestHere)) then
@@ -114,7 +114,7 @@ function Assist.MissingHere(jid)
   if not cat then return nil end
   local classID = select(3, UnitClass("player"))
   local faction = UnitFactionGroup("player")
-  local diffName = currentDifficultyName()
+  local facets = currentDifficultyFacets()
   local out = {}
   for _, g in ipairs(cat.order) do
     repeat
@@ -124,13 +124,13 @@ function Assist.MissingHere(jid)
       -- inspect the variant matching the instance's difficulty, and judge
       -- completeness on IT (the 10-player recolor being done must not silence
       -- the 25-player one, and vice versa)
-      local setID = variantFor(g, diffName)
+      local setID = variantFor(g, facets)
       local n, t = ns.Pieces.Progress(setID)
       if t == 0 or n >= t then break end
       for _, piece in ipairs(ns.Pieces.For(setID)) do
         if not piece.collected
            and ns.Sources.PieceInstanceSet(setID, piece)[jid]
-           and ns.Sources.PieceMatchesDifficulty(setID, piece, jid, diffName) then
+           and ns.Sources.PieceMatchesDifficulty(setID, piece, jid, facets) then
           out[#out + 1] = {
             boss = ns.Sources.PieceEncounterIn(setID, piece, jid),
             pieceName = piece.name or ns.Pieces.SlotLabel(piece.itemID),
@@ -156,7 +156,8 @@ function Assist.Check()
     lastVisitKey = nil
     return
   end
-  local visitKey = jid .. ":" .. (currentDifficultyName() or "")
+  local _, _, diffID = GetInstanceInfo()
+  local visitKey = jid .. ":" .. (diffID or 0)
   if visitKey == lastVisitKey then return end
   local list = Assist.MissingHere(jid)
   if not list then
