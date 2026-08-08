@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-08-08
+
+### Changed
+- The assistant's chat lines link the actual items (clickable) and flag the
+  bosses already defeated this week in red.
+
+### Fixed
+- Pieces whose appearance can also be looted from a boss now lead with that
+  boss source instead of "Vendor" (the T11 heroic vendor pieces share their
+  looks with Blackwing Descent / Bastion of Twilight drops): the source line
+  names the boss, and guidance, the in-instance assistant and the lockouts
+  all treat the piece as farmable there.
+- The in-instance assistant honours the difficulty you entered on: it inspects
+  the variant matching the instance's difficulty and only announces pieces
+  that actually drop on it — no more 10-player pieces listed in a 25-player
+  raid. Difficulties are compared by their size/tier facets, so a "Heroic"
+  recolor correctly matches a "25 Player (Heroic)" instance; lockout matching
+  uses the same rule. The open-on-current-instance selection (and the variant
+  it opens on) follows too.
+- Lockouts join their instance by numeric id instead of localized name — some
+  instances are named differently in the saved-instances list and in the
+  Encounter Journal ("Temple noir" vs "Le Temple noir" in French), which left
+  their sets without lock state.
+
 ## [1.1.0] - 2026-08-08
 
 ### Added

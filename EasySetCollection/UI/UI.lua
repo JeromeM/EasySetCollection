@@ -268,15 +268,26 @@ function UI.Show()
   UI.RefreshAll()
 
   -- opened inside a dungeon/raid: bring the place's most relevant set forward
-  -- (unless the current selection already drops here)
+  -- — and in every case open it on the variant of the CURRENT difficulty
   if ns.Assist and ns.Assist.CurrentJid then
     local jid = ns.Assist.CurrentJid()
     if jid then
       local cur = ns.SetList.selected and ns.Sets.GroupFor
         and ns.Sets.GroupFor(ns.SetList.selected) or nil
-      if not (cur and ns.Assist.GroupDropsIn(cur, jid)) then
+      if cur and ns.Assist.GroupDropsIn(cur, jid) then
+        -- already on a set of this place: just align its variant
+        local v = ns.Assist.VariantHere and ns.Assist.VariantHere(cur)
+        if v and v ~= ns.Detail.setID then
+          ns.Detail.setID = v
+          ns.charDB.selectedSetID = v
+          ns.Detail.Refresh()
+        end
+      else
         local g = ns.Assist.BestGroupHere(jid)
         if g then
+          if ns.Assist.VariantHere then
+            ns.Detail.setID = ns.Assist.VariantHere(g)
+          end
           ns.SetList.Select(g)
           if ns.SetList.ScrollTo then ns.SetList.ScrollTo(g.baseSetID) end
         end

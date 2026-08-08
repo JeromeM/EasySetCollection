@@ -12,7 +12,21 @@ ns.Lockouts = ns.Lockouts or {}
 local Lockouts = ns.Lockouts
 
 local locks          -- [normKey(instance name)] = { { diffName, total, killed, expires }, … }; nil until the first UPDATE_INSTANCE_INFO
+local locksByMap     -- [instanceMapID] = same entry lists — the locale-proof primary index
 local setCache = {}  -- [setID] = { state, details } | false (verdict: nothing relevant)
+
+-- instanceMapID for a journal instance (EJ_GetInstanceInfo's 10th return),
+-- cached: it is the same id GetSavedInstanceInfo reports, making the
+-- lockout join purely numeric — localized names disagree between the two
+-- lists ("Temple noir" saved vs "Le Temple noir" in the Journal).
+local jidToMap = {}
+local function instanceMapFor(jid)
+  local cached = jidToMap[jid]
+  if cached ~= nil then return cached or nil end
+  local mapID = EJ_GetInstanceInfo and select(10, EJ_GetInstanceInfo(jid)) or nil
+  jidToMap[jid] = mapID or false
+  return mapID
+end
 
 --- Join key for an instance name: lowercased, apostrophe variants unified,
 --- spacing/punctuation stripped — the saved-instances list and the Encounter
@@ -29,24 +43,40 @@ function Lockouts.Request()
   if RequestRaidInfo then RequestRaidInfo() end
 end
 
---- Rebuild the lockout index from GetSavedInstanceInfo (on UPDATE_INSTANCE_INFO).
+--- Rebuild the lockout indexes from GetSavedInstanceInfo (on UPDATE_INSTANCE_INFO).
 function Lockouts.Rebuild()
-  locks = {}
+  locks, locksByMap = {}, {}
   wipe(setCache)
   local now = GetTime()
   for i = 1, (GetNumSavedInstances and GetNumSavedInstances() or 0) do
-    local name, _, reset, _, locked, extended, _, _, _, diffName, numEnc, encProgress =
-      GetSavedInstanceInfo(i)
+    local name, _, reset, _, locked, extended, _, _, _, diffName, numEnc, encProgress,
+      _, instanceID = GetSavedInstanceInfo(i)
     if name and (locked or extended) and reset and reset > 0 then
-      local key = normKey(name)
-      local list = locks[key]
-      if not list then list = {}; locks[key] = list end
-      list[#list + 1] = {
+      -- per-boss kill map (normKey'd localized encounter names): feeds the
+      -- assistant's "already defeated" tags
+      local dead = {}
+      if GetSavedInstanceEncounterInfo then
+        for e = 1, (numEnc or 0) do
+          local ok, bossName, _, isKilled = pcall(GetSavedInstanceEncounterInfo, i, e)
+          if ok and bossName and isKilled then dead[normKey(bossName)] = true end
+        end
+      end
+      local entry = {
         diffName = diffName,
         total    = numEnc or 0,
         killed   = encProgress or 0,
         expires  = now + reset,
+        dead     = dead,
       }
+      if instanceID and instanceID ~= 0 then
+        local byMap = locksByMap[instanceID]
+        if not byMap then byMap = {}; locksByMap[instanceID] = byMap end
+        byMap[#byMap + 1] = entry
+      end
+      local key = normKey(name)
+      local list = locks[key]
+      if not list then list = {}; locks[key] = list end
+      list[#list + 1] = entry
     end
   end
 end
@@ -74,11 +104,26 @@ end
 
 --- The lockout that speaks for an instance: the variant difficulty's own
 --- lockout when the variant has one (a foreign difficulty's lockout neither
---- locks nor informs it), otherwise the most-progressed lockout.
+--- locks nor informs it), otherwise the most-progressed lockout. Difficulty
+--- names are matched exactly first, then by FACETS — a "Heroic" variant
+--- listens to a "25 Player (Heroic)" lockout — preferring one with bosses
+--- still up (a piece dropping in 10 AND 25 stays farmable while either is).
 local function pickLock(list, desc)
   if desc then
     for _, lk in ipairs(list) do
       if lk.diffName == desc then return lk end
+    end
+    local df = ns.Sources.FacetsForDifficultyName(desc)
+    if df then
+      local firstCompat
+      for _, lk in ipairs(list) do
+        local lf = ns.Sources.FacetsForDifficultyName(lk.diffName)
+        if lf and ns.Sources.FacetsCompatible(df, lf) then
+          if lk.total == 0 or lk.killed < lk.total then return lk end
+          firstCompat = firstCompat or lk
+        end
+      end
+      if firstCompat then return firstCompat end
     end
     return nil
   end
@@ -130,7 +175,10 @@ function Lockouts.SetState(setID)
     if t.jid then
       local farm = (t.missing or 0) > 0
       if farm then relevant = relevant + 1 end
-      local list = locks[normKey(ns.Sources.InstanceName(t.jid))]
+      -- numeric join first (locale-proof), normalized name as the fallback
+      local mapID = instanceMapFor(t.jid)
+      local list = (mapID and locksByMap[mapID])
+        or locks[normKey(ns.Sources.InstanceName(t.jid))]
       local lk = list and pickLock(list, desc)
       if lk then
         local full = lk.total > 0 and lk.killed >= lk.total
@@ -186,6 +234,24 @@ function Lockouts.IconMarkup(size)
     return ("|A:%s:%d:%d|a"):format(LOCK_ATLAS, size, size)
   end
   return ("|TInterface\\LFGFrame\\UI-LFG-ICON-LOCK:%d:%d|t"):format(size, size)
+end
+
+--- Is a boss (by localized encounter name) already defeated this week in an
+--- instance, on a difficulty compatible with the given facets?
+function Lockouts.BossDead(jid, facets, bossName)
+  if not (locks and jid and bossName) then return false end
+  local mapID = instanceMapFor(jid)
+  local list = (mapID and locksByMap[mapID])
+    or locks[normKey(ns.Sources.InstanceName(jid))]
+  if not list then return false end
+  local key = normKey(bossName)
+  for _, lk in ipairs(list) do
+    if not facets
+       or ns.Sources.FacetsCompatible(facets, ns.Sources.FacetsForDifficultyName(lk.diffName)) then
+      if lk.dead and lk.dead[key] then return true end
+    end
+  end
+  return false
 end
 
 --- "2 d 4 h" — remaining time before a lockout entry resets.

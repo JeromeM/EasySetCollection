@@ -57,6 +57,51 @@ local function dropsFor(sourceID)
   return nil
 end
 
+-- --- farmable face of a piece -------------------------------------------------
+-- An appearance often comes from SEVERAL items (the T11 heroic vendor pieces
+-- share their looks with Maloriak drops, …). When the set's own item is not a
+-- boss drop but a sibling item of the same appearance is, that sibling is the
+-- piece's FARMABLE face: display, guidance, assistant and lockouts all follow.
+
+local bossAltCache = {}   -- [sourceID] = boss-drop sibling sourceID | false
+
+local function bossAltSource(sourceID)
+  local c = bossAltCache[sourceID]
+  if c ~= nil then
+    if c == false then return nil end
+    return c
+  end
+  local si = C_TransmogCollection.GetSourceInfo
+    and C_TransmogCollection.GetSourceInfo(sourceID)
+  local visualID = si and si.visualID
+  if visualID and C_TransmogCollection.GetAllAppearanceSources then
+    local ok, all = pcall(C_TransmogCollection.GetAllAppearanceSources, visualID)
+    if ok and type(all) == "table" then
+      for _, sid in ipairs(all) do
+        if sid ~= sourceID then
+          local s2 = C_TransmogCollection.GetSourceInfo(sid)
+          if s2 and s2.sourceType == ns.SRC.BOSS then
+            bossAltCache[sourceID] = sid
+            return sid
+          end
+        end
+      end
+    end
+  end
+  bossAltCache[sourceID] = false
+  return nil
+end
+
+--- The sourceID (and its sourceType) a piece is farmed through: its own when
+--- it is a boss drop, else a boss-drop sibling of the same appearance, else
+--- itself unchanged.
+local function farmSource(piece)
+  if piece.sourceType == ns.SRC.BOSS then return piece.sourceID, ns.SRC.BOSS end
+  local alt = bossAltSource(piece.sourceID)
+  if alt then return alt, ns.SRC.BOSS end
+  return piece.sourceID, piece.sourceType
+end
+
 -- --- Encounter Journal name index (runtime fallback, built once) ------------
 
 local ejIndex   -- [localized instance name] = journalInstanceID
@@ -152,7 +197,7 @@ function Sources.PieceInstance(setID, piece)
     end
     if jid then return jid, Sources.InstanceName(jid) end
   end
-  local drops = dropsFor(piece.sourceID)
+  local drops = dropsFor((farmSource(piece)))
   if drops then
     local d = drops[1]
     local idx = ensureEJIndex()
@@ -166,8 +211,9 @@ end
 --- boss drops → "Encounter – Instance (Difficulty, …)", otherwise the localized
 --- source-type label ("Quête", "Vendeur", …).
 function Sources.PieceSourceText(setID, piece)
-  if piece.sourceType == ns.SRC.BOSS then
-    local drops = dropsFor(piece.sourceID)
+  local fsid, fst = farmSource(piece)
+  if fst == ns.SRC.BOSS then
+    local drops = dropsFor(fsid)
     if drops then
       -- show the drop entry consistent with the resolved (baked-aware)
       -- instance, so the detail rows agree with the list label
@@ -229,8 +275,9 @@ function Sources.PieceInstanceSet(setID, piece)
   local jids = {}
   local primary = Sources.PieceInstance(setID, piece)
   if primary then jids[primary] = true end
-  if piece.sourceType == ns.SRC.BOSS then
-    local drops = dropsFor(piece.sourceID)
+  local fsid, fst = farmSource(piece)
+  if fst == ns.SRC.BOSS then
+    local drops = dropsFor(fsid)
     if drops then
       local idx = ensureEJIndex()
       for _, d in ipairs(drops) do
@@ -245,8 +292,9 @@ end
 --- The encounter dropping a piece inside a SPECIFIC instance (localized) —
 --- the resolved-first drop entry can belong to another instance.
 function Sources.PieceEncounterIn(setID, piece, jid)
-  if piece.sourceType ~= ns.SRC.BOSS then return nil end
-  local drops = dropsFor(piece.sourceID)
+  local fsid, fst = farmSource(piece)
+  if fst ~= ns.SRC.BOSS then return nil end
+  local drops = dropsFor(fsid)
   if not drops then return nil end
   local want = Sources.InstanceName(jid)
   for _, d in ipairs(drops) do
@@ -255,13 +303,38 @@ function Sources.PieceEncounterIn(setID, piece, jid)
   return drops[1] and drops[1].encounter
 end
 
+--- Does a piece drop in this instance ON a difficulty compatible with the
+--- given facets? Permissive: unknown drop data, an entry without
+--- difficulties, or an unrecognized difficulty name never excludes.
+function Sources.PieceMatchesDifficulty(setID, piece, jid, facets)
+  if not facets then return true end
+  local fsid, fst = farmSource(piece)
+  if fst ~= ns.SRC.BOSS then return true end
+  local drops = dropsFor(fsid)
+  if not drops then return true end
+  local want = Sources.InstanceName(jid)
+  for _, d in ipairs(drops) do
+    if d.instance == want then
+      if not d.difficulties or #d.difficulties == 0 then return true end
+      for _, diff in ipairs(d.difficulties) do
+        if Sources.FacetsCompatible(Sources.FacetsForDifficultyName(diff), facets) then
+          return true
+        end
+      end
+      return false
+    end
+  end
+  return true
+end
+
 --- Hierarchy parts of a piece for the tracker tree: the LOCATION (instance
 --- name, or the source kind for non-instance pieces) and the SOURCE inside it
 --- (boss encounter / quest title / vendor name — nil when unknown).
 function Sources.PieceSourceParts(setID, piece)
-  if piece.sourceType == ns.SRC.BOSS then
+  local fsid, fst = farmSource(piece)
+  if fst == ns.SRC.BOSS then
     local jid = Sources.PieceInstance(setID, piece)
-    local drops = dropsFor(piece.sourceID)
+    local drops = dropsFor(fsid)
     local d
     if drops then
       d = drops[1]
@@ -341,6 +414,57 @@ local function classifyLive(g)
 end
 
 -- --- default variant --------------------------------------------------------
+
+-- --- difficulty facets --------------------------------------------------------
+-- A difficulty is a raid SIZE plus a TIER; the pieces of the puzzle name them
+-- inconsistently ("25 Player (Heroic)" for the instance you're in, "Heroic"
+-- on a variant, "25 Player" on a drop entry). Two difficulties are COMPATIBLE
+-- when no facet conflicts — an unknown facet is a wildcard.
+
+local DIFF_FACETS = {
+  [1]  = { tier = "normal" },                 -- dungeon Normal
+  [2]  = { tier = "heroic" },                 -- dungeon Heroic
+  [23] = { tier = "mythic" },                 -- dungeon Mythic
+  [3]  = { size = 10, tier = "normal" },      -- 10 Player
+  [4]  = { size = 25, tier = "normal" },      -- 25 Player
+  [5]  = { size = 10, tier = "heroic" },      -- 10 Player (Heroic)
+  [6]  = { size = 25, tier = "heroic" },      -- 25 Player (Heroic)
+  [9]  = { size = 40, tier = "normal" },      -- 40 Player
+  [14] = { tier = "normal" },                 -- raid Normal (flex)
+  [15] = { tier = "heroic" },                 -- raid Heroic (flex)
+  [16] = { tier = "mythic" },                 -- raid Mythic
+  [7]  = { tier = "lfr" },                    -- LFR (legacy)
+  [17] = { tier = "lfr" },                    -- LFR
+}
+
+--- Facets of a difficultyID (nil = unknown difficulty, treated as wildcard).
+function Sources.DifficultyFacets(diffID)
+  return diffID and DIFF_FACETS[diffID] or nil
+end
+
+local nameFacets   -- [localized difficulty name] = facets (built once)
+
+--- Facets of a LOCALIZED difficulty name (variant descriptions, drop entries,
+--- lockout difficultyName — they all live in the GetDifficultyInfo space).
+function Sources.FacetsForDifficultyName(name)
+  if not name or name == "" then return nil end
+  if not nameFacets then
+    nameFacets = {}
+    for id, f in pairs(DIFF_FACETS) do
+      local n = GetDifficultyInfo and GetDifficultyInfo(id)
+      if n and not nameFacets[n] then nameFacets[n] = f end
+    end
+  end
+  return nameFacets[name]
+end
+
+--- No conflicting facet (nil side = wildcard, always compatible).
+function Sources.FacetsCompatible(a, b)
+  if not a or not b then return true end
+  if a.size and b.size and a.size ~= b.size then return false end
+  if a.tier and b.tier and a.tier ~= b.tier then return false end
+  return true
+end
 
 -- difficultyIDs in DEFAULT-SELECTION preference order: Normal first (dungeon,
 -- raid, then 10-player before 25-player and 40), Heroic, Mythic, LFR last.

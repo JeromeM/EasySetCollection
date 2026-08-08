@@ -106,6 +106,8 @@ L["/esc suggest — guide to the closest farmable set"] = "/esc suggest — guid
 
 -- in-instance assistant
 L["%d set pieces you're missing drop here!"] = "%d set pieces you're missing drop here!"
+L["A set piece you're missing drops here!"] = "A set piece you're missing drops here!"
+L["Defeated"] = "Defeated"
 L["Announce missing set pieces when entering an instance"] = "Announce missing set pieces when entering an instance"
 L["Show the announcement as a toast (chat is always used)"] = "Show the announcement as a toast (chat is always used)"
 
