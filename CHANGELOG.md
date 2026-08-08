@@ -15,7 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cataclysm and Mists raids share one lockout across every size and
   difficulty (a 25-heroic clear blocks 10/25 normal too): their lockouts now
   lock all variants of a set — no more suggesting a normal-mode farm the
-  game won't let you enter.
+  game won't let you enter. An active lockout also binds the week's ENTRY to
+  its difficulty, so pieces of the other difficulty stop counting as
+  farmable even when their bosses are still alive.
 
 ## [1.1.1] - 2026-08-08
 

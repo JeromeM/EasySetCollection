@@ -265,6 +265,19 @@ function Lockouts.BossDead(jid, facets, bossName)
   return false
 end
 
+--- For shared-lockout raids (Cata/MoP) with an ACTIVE lockout: the facets of
+--- that lockout. Entry is bound to it for the week — pieces of other
+--- difficulties are out of reach even from still-alive bosses. Nil when no
+--- lockout, or when the instance doesn't share lockouts across difficulties.
+function Lockouts.EntryFacets(jid)
+  if not (locks and jid) or not sharedLockoutRaid(jid) then return nil end
+  local mapID = instanceMapFor(jid)
+  local list = (mapID and locksByMap[mapID])
+    or locks[normKey(ns.Sources.InstanceName(jid))]
+  local lk = list and list[1]
+  return lk and ns.Sources.FacetsForDifficultyName(lk.diffName) or nil
+end
+
 --- "2 d 4 h" — remaining time before a lockout entry resets.
 function Lockouts.ResetText(entry)
   local s = entry.expires - GetTime()

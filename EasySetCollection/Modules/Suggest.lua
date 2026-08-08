@@ -58,11 +58,17 @@ end
 --- not be dead on a compatible lockout — a 6/9 clear that took every
 --- piece-holder leaves nothing to farm even though the lockout isn't full.
 local function farmableMissing(setID, jid, setFacets)
+  -- a shared-lockout raid with an active lockout binds entry to ITS
+  -- difficulty: normal pieces are unreachable while a heroic run is saved,
+  -- even from bosses still alive
+  local entry = ns.Lockouts and ns.Lockouts.EntryFacets
+    and ns.Lockouts.EntryFacets(jid) or nil
   local n = 0
   for _, piece in ipairs(ns.Pieces.For(setID)) do
     if not piece.collected
        and ns.Sources.PieceInstanceSet(setID, piece)[jid]
-       and ns.Sources.PieceMatchesDifficulty(setID, piece, jid, setFacets) then
+       and ns.Sources.PieceMatchesDifficulty(setID, piece, jid, setFacets)
+       and (not entry or ns.Sources.PieceMatchesDifficulty(setID, piece, jid, entry)) then
       local boss = ns.Sources.PieceEncounterIn(setID, piece, jid)
       if not (boss and ns.Lockouts and ns.Lockouts.BossDead
               and ns.Lockouts.BossDead(jid, setFacets, boss)) then
