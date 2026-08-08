@@ -34,13 +34,34 @@ function Assist.CurrentJid()
   return currentJid()
 end
 
---- Pieces of a group dropping in an instance (counted on its default variant).
+--- The difficulty the player's current instance runs on (GetDifficultyInfo
+--- name space — the same strings variant descriptions and drop entries use).
+local function currentDifficultyName()
+  local _, _, diffID = GetInstanceInfo()
+  if diffID and diffID ~= 0 and GetDifficultyInfo then
+    return (GetDifficultyInfo(diffID))
+  end
+end
+
+--- The variant to inspect for a group: the one matching the instance's
+--- difficulty when such a recolor exists, the default variant otherwise.
+local function variantFor(g, diffName)
+  if diffName then
+    for _, v in ipairs(g.variants) do
+      if v.description == diffName then return v.setID end
+    end
+  end
+  return ns.Sources.DefaultVariant(g) or g.baseSetID
+end
+
+--- Pieces of a group dropping in an instance ON the given difficulty.
 ---@return number here, number missing
-local function piecesHere(g, jid)
-  local setID = ns.Sources.DefaultVariant(g) or g.baseSetID
+local function piecesHere(g, jid, diffName)
+  local setID = variantFor(g, diffName)
   local here, missing = 0, 0
   for _, piece in ipairs(ns.Pieces.For(setID)) do
-    if ns.Sources.PieceInstanceSet(setID, piece)[jid] then
+    if ns.Sources.PieceInstanceSet(setID, piece)[jid]
+       and ns.Sources.PieceMatchesDifficulty(setID, piece, jid, diffName) then
       here = here + 1
       if not piece.collected then missing = missing + 1 end
     end
@@ -48,10 +69,10 @@ local function piecesHere(g, jid)
   return here, missing
 end
 
---- Does a group drop anything in an instance? (used to leave the user's
---- selection alone when it already belongs here)
+--- Does a group drop anything in the CURRENT instance (on its difficulty)?
+--- Used to leave the user's selection alone when it already belongs here.
 function Assist.GroupDropsIn(g, jid)
-  return (piecesHere(g, jid)) > 0
+  return (piecesHere(g, jid, currentDifficultyName())) > 0
 end
 
 --- The group to bring forward when opening the window inside an instance:
@@ -62,12 +83,13 @@ function Assist.BestGroupHere(jid)
   if not cat then return nil end
   local classID = select(3, UnitClass("player"))
   local faction = UnitFactionGroup("player")
+  local diffName = currentDifficultyName()
   local best, bestMissing, bestHere
   for _, g in ipairs(cat.order) do
     if not g.hidden and not g.legacy
       and (not classID or bit.band(g.classMask or 0, 2 ^ (classID - 1)) ~= 0)
       and not (g.requiredFaction and faction and g.requiredFaction ~= faction) then
-      local here, missing = piecesHere(g, jid)
+      local here, missing = piecesHere(g, jid, diffName)
       if here > 0 and (not best
           or missing > bestMissing
           or (missing == bestMissing and here > bestHere)) then
@@ -86,17 +108,23 @@ function Assist.MissingHere(jid)
   if not cat then return nil end
   local classID = select(3, UnitClass("player"))
   local faction = UnitFactionGroup("player")
+  local diffName = currentDifficultyName()
   local out = {}
   for _, g in ipairs(cat.order) do
     repeat
       if g.hidden or g.legacy then break end
       if classID and bit.band(g.classMask or 0, 2 ^ (classID - 1)) == 0 then break end
       if g.requiredFaction and faction and g.requiredFaction ~= faction then break end
-      local n, t = ns.Pieces.GroupProgress(g)
+      -- inspect the variant matching the instance's difficulty, and judge
+      -- completeness on IT (the 10-player recolor being done must not silence
+      -- the 25-player one, and vice versa)
+      local setID = variantFor(g, diffName)
+      local n, t = ns.Pieces.Progress(setID)
       if t == 0 or n >= t then break end
-      local setID = ns.Sources.DefaultVariant(g) or g.baseSetID
       for _, piece in ipairs(ns.Pieces.For(setID)) do
-        if not piece.collected and ns.Sources.PieceInstanceSet(setID, piece)[jid] then
+        if not piece.collected
+           and ns.Sources.PieceInstanceSet(setID, piece)[jid]
+           and ns.Sources.PieceMatchesDifficulty(setID, piece, jid, diffName) then
           out[#out + 1] = {
             boss = ns.Sources.PieceEncounterIn(setID, piece, jid),
             pieceName = piece.name or ns.Pieces.SlotLabel(piece.itemID),

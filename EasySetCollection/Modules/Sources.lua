@@ -255,6 +255,27 @@ function Sources.PieceEncounterIn(setID, piece, jid)
   return drops[1] and drops[1].encounter
 end
 
+--- Does a piece drop in this instance ON this difficulty? Permissive: unknown
+--- drop data or an entry without difficulties never excludes. diffName lives
+--- in the GetDifficultyInfo name space ("10 Player", "Heroic", …), the same
+--- one the drop entries use.
+function Sources.PieceMatchesDifficulty(setID, piece, jid, diffName)
+  if not diffName or piece.sourceType ~= ns.SRC.BOSS then return true end
+  local drops = dropsFor(piece.sourceID)
+  if not drops then return true end
+  local want = Sources.InstanceName(jid)
+  for _, d in ipairs(drops) do
+    if d.instance == want then
+      if not d.difficulties or #d.difficulties == 0 then return true end
+      for _, diff in ipairs(d.difficulties) do
+        if diff == diffName then return true end
+      end
+      return false
+    end
+  end
+  return true
+end
+
 --- Hierarchy parts of a piece for the tracker tree: the LOCATION (instance
 --- name, or the source kind for non-instance pieces) and the SOURCE inside it
 --- (boss encounter / quest title / vendor name — nil when unknown).

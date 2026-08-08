@@ -61,7 +61,12 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
 - `Modules/Assist.lua` — in-instance assistant: on PEW (+3s) / zone change,
   EJ_GetInstanceForMap resolves where we are; MissingHere(jid) sweeps the
   class's incomplete groups through Sources.PieceInstanceSet (multi-drop) and
-  PieceEncounterIn; announces once per visit (lastJid) via UI.NotifyAssist
+  PieceEncounterIn, DIFFICULTY-AWARE: the variant matching the instance's
+  current difficulty (GetInstanceInfo→GetDifficultyInfo name = variant
+  description space) is inspected, and pieces filtered per-drop through
+  Sources.PieceMatchesDifficulty (10/25-player sets share one jid — without
+  this, both announce everywhere); announces once per visit (lastJid) via
+  UI.NotifyAssist
   (silent toast, title override) + a boss-by-boss chat list. `db.assist.enabled`
   toggle in Notifications (+ `.toast` for the toast alone). Feeds UI.Show's
   open-on-current-instance selection (BestGroupHere). Boss TOOLTIPS (unit and

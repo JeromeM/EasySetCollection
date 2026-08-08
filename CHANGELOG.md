@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- The in-instance assistant honours the difficulty you entered on: it inspects
+  the variant matching the instance's difficulty and only announces pieces
+  that actually drop on it — no more 10-player pieces listed in a 25-player
+  raid. The open-on-current-instance selection follows the same rule.
 - Lockouts join their instance by numeric id instead of localized name — some
   instances are named differently in the saved-instances list and in the
   Encounter Journal ("Temple noir" vs "Le Temple noir" in French), which left
