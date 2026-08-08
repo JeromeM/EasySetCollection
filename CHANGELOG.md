@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- The assistant's chat lines link the actual items (clickable) and flag the
+  bosses already defeated this week in red.
+
 ### Fixed
 - Pieces whose appearance can also be looted from a boss now lead with that
   boss source instead of "Vendor" (the T11 heroic vendor pieces share their

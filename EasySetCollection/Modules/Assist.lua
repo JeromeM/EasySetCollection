@@ -182,14 +182,20 @@ function Assist.Check()
       ns.UI.NotifyAssist(instName, line, ns.Pieces.SetIcon(list[1].setID))
     end
     ns.Print(instName .. " — " .. line)
+    local facets = currentDifficultyFacets()
     local shown = math.min(#list, 12)
     for i = 1, shown do
       local e = list[i]
       -- a real, clickable item link whenever the item cache allows it
       local pieceText = ns.Pieces.ItemLink(e.sourceID, e.itemID)
         or e.pieceName or ns.Pieces.SlotLabel(e.itemID) or "?"
+      local bossText = e.boss or L["Unknown source"]
+      if e.boss and ns.Lockouts and ns.Lockouts.BossDead
+         and ns.Lockouts.BossDead(jid, facets, e.boss) then
+        bossText = bossText .. " |cfff25a4d(" .. L["Defeated"] .. ")|r"
+      end
       ns.Print(string.format("|cffe9e9ec%s|r — %s |cff8a8a8a(%s)|r",
-        e.boss or L["Unknown source"], pieceText, e.setName or "?"))
+        bossText, pieceText, e.setName or "?"))
     end
     if #list > shown then
       ns.Print(string.format(L["(+%d more pieces)"], #list - shown))

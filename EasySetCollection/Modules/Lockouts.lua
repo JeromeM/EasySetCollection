@@ -52,11 +52,21 @@ function Lockouts.Rebuild()
     local name, _, reset, _, locked, extended, _, _, _, diffName, numEnc, encProgress,
       _, instanceID = GetSavedInstanceInfo(i)
     if name and (locked or extended) and reset and reset > 0 then
+      -- per-boss kill map (normKey'd localized encounter names): feeds the
+      -- assistant's "already defeated" tags
+      local dead = {}
+      if GetSavedInstanceEncounterInfo then
+        for e = 1, (numEnc or 0) do
+          local ok, bossName, _, isKilled = pcall(GetSavedInstanceEncounterInfo, i, e)
+          if ok and bossName and isKilled then dead[normKey(bossName)] = true end
+        end
+      end
       local entry = {
         diffName = diffName,
         total    = numEnc or 0,
         killed   = encProgress or 0,
         expires  = now + reset,
+        dead     = dead,
       }
       if instanceID and instanceID ~= 0 then
         local byMap = locksByMap[instanceID]
@@ -224,6 +234,24 @@ function Lockouts.IconMarkup(size)
     return ("|A:%s:%d:%d|a"):format(LOCK_ATLAS, size, size)
   end
   return ("|TInterface\\LFGFrame\\UI-LFG-ICON-LOCK:%d:%d|t"):format(size, size)
+end
+
+--- Is a boss (by localized encounter name) already defeated this week in an
+--- instance, on a difficulty compatible with the given facets?
+function Lockouts.BossDead(jid, facets, bossName)
+  if not (locks and jid and bossName) then return false end
+  local mapID = instanceMapFor(jid)
+  local list = (mapID and locksByMap[mapID])
+    or locks[normKey(ns.Sources.InstanceName(jid))]
+  if not list then return false end
+  local key = normKey(bossName)
+  for _, lk in ipairs(list) do
+    if not facets
+       or ns.Sources.FacetsCompatible(facets, ns.Sources.FacetsForDifficultyName(lk.diffName)) then
+      if lk.dead and lk.dead[key] then return true end
+    end
+  end
+  return false
 end
 
 --- "2 d 4 h" — remaining time before a lockout entry resets.
