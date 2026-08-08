@@ -54,6 +54,25 @@ local function targetWorldPos(target)
   posCache[key] = false
 end
 
+--- Missing pieces of a set still FARMABLE in an instance: their bosses must
+--- not be dead on a compatible lockout — a 6/9 clear that took every
+--- piece-holder leaves nothing to farm even though the lockout isn't full.
+local function farmableMissing(setID, jid, setFacets)
+  local n = 0
+  for _, piece in ipairs(ns.Pieces.For(setID)) do
+    if not piece.collected
+       and ns.Sources.PieceInstanceSet(setID, piece)[jid]
+       and ns.Sources.PieceMatchesDifficulty(setID, piece, jid, setFacets) then
+      local boss = ns.Sources.PieceEncounterIn(setID, piece, jid)
+      if not (boss and ns.Lockouts and ns.Lockouts.BossDead
+              and ns.Lockouts.BossDead(jid, setFacets, boss)) then
+        n = n + 1
+      end
+    end
+  end
+  return n
+end
+
 --- Is candidate target a better pick than b? Same-continent wins, then raw
 --- distance, then "has a distance at all".
 local function betterTarget(a, b)
@@ -89,16 +108,20 @@ function Suggest.Candidates(wantCount)
       for _, d in ipairs(lockDetails or {}) do
         if d.cleared then clearedBy[d.title] = true end
       end
+      local sinfo = C_TransmogSets.GetSetInfo and C_TransmogSets.GetSetInfo(setID)
+      local setFacets = sinfo and ns.Sources.FacetsForDifficultyName(sinfo.description) or nil
 
       -- the NEAREST still-farmable target decides the set's rank AND where the
       -- suggestion sends you: a WotLK tier drops in Naxxramas AND the Vault of
       -- Archavon — standing at Naxxramas, that's the one you want, not the
-      -- most-missing one.
+      -- most-missing one. "Farmable" is judged PER BOSS: an instance whose
+      -- piece-holders are all dead this week is out, full clear or not.
       local best
       for _, tg in ipairs(ns.Sources.GuideTargets(setID)) do
         local eligible
         if tg.jid then
           eligible = (tg.missing or 0) > 0 and not clearedBy[tg.title]
+            and farmableMissing(setID, tg.jid, setFacets) > 0
         else
           eligible = true   -- curated quest/vendor point
         end

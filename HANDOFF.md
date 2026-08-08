@@ -58,7 +58,9 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
   passing group on first use — if that first toggle hitches with a cold drops
   cache, precompute or restrict to raid/dungeon buckets.
 - `Modules/Suggest.lua` — "farm the closest thing": sweeps the catalog (own
-  class, obtainable, incomplete, not Lockouts-"cleared"), resolves each
+  class, obtainable, incomplete, not Lockouts-"cleared", and per-target at
+  least one missing piece whose boss is still up — farmableMissing over
+  Lockouts.BossDead with the variant's difficulty facets), resolves each
   candidate's primary guide target to continent world space (EntranceForInstance
   → GetWorldPosFromMapPos, cached per session) and ranks same-continent by
   distance, the rest by fewest-missing. Go() selects + scrolls the list
