@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Pieces whose appearance can also be looted from a boss now lead with that
+  boss source instead of "Vendor" (the T11 heroic vendor pieces share their
+  looks with Blackwing Descent / Bastion of Twilight drops): the source line
+  names the boss, and guidance, the in-instance assistant and the lockouts
+  all treat the piece as farmable there.
 - The in-instance assistant honours the difficulty you entered on: it inspects
   the variant matching the instance's difficulty and only announces pieces
   that actually drop on it — no more 10-player pieces listed in a 25-player

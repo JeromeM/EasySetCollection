@@ -36,6 +36,12 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
 - `Modules/Sources.lua` — the three-layer source resolution (overrides > baked >
   live `GetAppearanceSourceDrops` + a lazily-built EJ name index), content-type
   classification, `GuideTargets(setID)` / `NavFor(setID)`, `/esc missing` dump.
+  Every per-piece function resolves through farmSource(): when the set's own
+  item is NOT a boss drop, a boss-drop sibling of the same appearance
+  (GetAllAppearanceSources) becomes the piece's farmable face — T11 heroic
+  "vendor" pieces are farmed off Maloriak & co. Difficulty FACETS (size ×
+  tier from difficultyID) power all difficulty comparisons — the client names
+  the same difficulty three different ways.
 - `Modules/Lockouts.lua` — weekly lockouts (`GetSavedInstanceInfo`, refreshed
   via `RequestRaidInfo` on PEW/BOSS_KILL → `UPDATE_INSTANCE_INFO`), indexed by
   localized instance name (joins the EJ names used by Sources' guide targets).
