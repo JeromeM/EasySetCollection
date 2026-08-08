@@ -9,7 +9,7 @@ ns.Assist = ns.Assist or {}
 local Assist = ns.Assist
 local L = ns.L
 
-local lastJid   -- last announced instance (wing changes / releases must not re-toast)
+local lastVisitKey   -- "jid:difficulty" last announced (wing changes / releases must not re-toast, a difficulty change must)
 
 --- The journal instance the player is standing in (nil outdoors / in
 --- scenarios): map → EJ resolution first, then the localized instance name
@@ -147,17 +147,18 @@ function Assist.Check()
   if not (ns.db and ns.db.assist and ns.db.assist.enabled) then return end
   local jid = currentJid()
   if not jid then
-    lastJid = nil
+    lastVisitKey = nil
     return
   end
-  if jid == lastJid then return end
+  local visitKey = jid .. ":" .. (currentDifficultyName() or "")
+  if visitKey == lastVisitKey then return end
   local list = Assist.MissingHere(jid)
   if not list then
     -- collection still loading (login inside an instance): try again shortly
     C_Timer.After(5, Assist.Check)
     return
   end
-  lastJid = jid
+  lastVisitKey = visitKey
   if #list == 0 then return end
 
   local instName = ns.Sources.InstanceName(jid)
