@@ -135,6 +135,7 @@ function Assist.MissingHere(jid)
             boss = ns.Sources.PieceEncounterIn(setID, piece, jid),
             pieceName = piece.name,   -- nil until the item loads (async)
             itemID = piece.itemID,
+            sourceID = piece.sourceID,
             setName = g.name,
             setID = setID,
           }
@@ -184,9 +185,11 @@ function Assist.Check()
     local shown = math.min(#list, 12)
     for i = 1, shown do
       local e = list[i]
-      local pieceName = e.pieceName or ns.Pieces.SlotLabel(e.itemID) or "?"
+      -- a real, clickable item link whenever the item cache allows it
+      local pieceText = ns.Pieces.ItemLink(e.sourceID, e.itemID)
+        or e.pieceName or ns.Pieces.SlotLabel(e.itemID) or "?"
       ns.Print(string.format("|cffe9e9ec%s|r — %s |cff8a8a8a(%s)|r",
-        e.boss or L["Unknown source"], pieceName, e.setName or "?"))
+        e.boss or L["Unknown source"], pieceText, e.setName or "?"))
     end
     if #list > shown then
       ns.Print(string.format(L["(+%d more pieces)"], #list - shown))
