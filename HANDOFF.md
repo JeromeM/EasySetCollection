@@ -49,7 +49,10 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
   variant difficulty (set description ∈ GetDifficultyInfo names) selects the
   matching lockout only — and is only ENFORCED when the group has ≥2
   difficulty-named variants (vanilla sets say "Normal", their lockout says
-  "40 Player"). The lockout↔instance join is NUMERIC first —
+  "40 Player"). Cata/MoP RAIDS (baked inst.tier 4/5) share one lockout across
+  every size and difficulty: for them pickLock/BossDead ignore facets — any
+  difficulty's lockout locks them all. The lockout↔instance join is NUMERIC
+  first —
   GetSavedInstanceInfo's 14th return (instanceMapID) vs EJ_GetInstanceInfo's
   10th — because localized names disagree between the two lists ("Temple
   noir" saved vs "Le Temple noir" in the EJ); normKey'd names (lowercase,
