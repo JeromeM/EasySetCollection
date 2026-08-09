@@ -93,12 +93,17 @@ local function bossAltSource(sourceID)
 end
 
 --- The sourceID (and its sourceType) a piece is farmed through: its own when
---- it is a boss drop, else a boss-drop sibling of the same appearance, else
+--- it is a boss drop, else a boss-drop sibling of the same appearance, else —
+--- TOKEN pieces (tier sets): the item is "sold by" a vendor, but the client's
+--- drops data still names the instance bosses through the token chain — its
+--- own sourceID promoted to boss when that drops list is non-empty, else
 --- itself unchanged.
 local function farmSource(piece)
   if piece.sourceType == ns.SRC.BOSS then return piece.sourceID, ns.SRC.BOSS end
   local alt = bossAltSource(piece.sourceID)
   if alt then return alt, ns.SRC.BOSS end
+  local drops = dropsFor(piece.sourceID)
+  if drops and #drops > 0 then return piece.sourceID, ns.SRC.BOSS end
   return piece.sourceID, piece.sourceType
 end
 
@@ -192,8 +197,10 @@ function Sources.PieceInstance(setID, piece)
     local p = baked.pieces and baked.pieces[piece.sourceID]
     local jid = p and p.j
     if not jid and (not p or p.j == nil) then
-      local st = (p and p.st) or piece.sourceType
-      if st == ns.SRC.BOSS then jid = baked.j end
+      -- farm-corrected type: token/sibling pieces inherit the set's baked
+      -- instance exactly like plain boss drops
+      local _, fst = farmSource(piece)
+      if fst == ns.SRC.BOSS then jid = baked.j end
     end
     if jid then return jid, Sources.InstanceName(jid) end
   end
@@ -210,6 +217,67 @@ end
 --- Display line for a piece row in the detail pane:
 --- boss drops → "Encounter – Instance (Difficulty, …)", otherwise the localized
 --- source-type label ("Quête", "Vendeur", …).
+-- --- baked vendor layer (Data/Vendors.lua) -------------------------------------
+
+--- Best selling NPC for a variant set (the player's faction), from the baked
+--- vendor data: { npc, name, map, x, y } — located vendors win over name-only
+--- ones; nil when the set has none. Names are baked in English and displayed
+--- through ns.L (translatable, falls back to the key).
+function Sources.VendorFor(setID)
+  local V = EasySetCollectionVendors
+  local list = V and V.sets and V.sets[setID]
+  if not list then return nil end
+  local mySide = (UnitFactionGroup and UnitFactionGroup("player") == "Horde") and 2 or 1
+  local best
+  for _, e in ipairs(list) do
+    local side = e.s or 3
+    if side == 3 or side == mySide then
+      local npc = V.npcs and V.npcs[e.n]
+      if npc then
+        local cand = { npc = e.n, name = npc.name, map = npc.map, x = npc.x, y = npc.y }
+        if cand.map and cand.x then return cand end
+        best = best or cand
+      end
+    end
+  end
+  return best
+end
+
+--- Baked price of a piece's item ("30g · 3 × Mark of Honor"); nil when
+--- unknown. Currency names and icons resolve live (localized); item costs
+--- (tier tokens) may name-load asynchronously ("…" until the client caches
+--- them, repainted with the rest of the pane).
+function Sources.PieceCost(piece)
+  local V = EasySetCollectionVendors
+  local c = V and V.costs and piece.itemID and V.costs[piece.itemID]
+  if not c then return nil end
+  local bits = {}
+  if c.g and c.g > 0 then
+    bits[#bits + 1] = GetMoneyString and GetMoneyString(c.g, true)
+      or (math.floor(c.g / 10000) .. "g")
+  end
+  for _, cur in ipairs(c.c or {}) do
+    -- Wowhead's "currency" cost slot also carries token ITEMS (tier tokens,
+    -- Marks of Honor): when the id isn't a real currency, read it as an item
+    local ok, info = pcall(C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo
+      or function() end, cur[1])
+    if ok and info and info.name and info.name ~= "" then
+      local icon = info.iconFileID and ("|T" .. info.iconFileID .. ":12|t ") or ""
+      bits[#bits + 1] = cur[2] .. " × " .. icon .. info.name
+    else
+      local name = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(cur[1])
+      local icon = C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(cur[1])
+      bits[#bits + 1] = cur[2] .. " × "
+        .. (icon and ("|T" .. icon .. ":12|t ") or "") .. (name or "…")
+    end
+  end
+  for _, it in ipairs(c.i or {}) do
+    local name = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(it[1])
+    bits[#bits + 1] = it[2] .. " × " .. (name or "…")
+  end
+  if #bits > 0 then return table.concat(bits, " · ") end
+end
+
 function Sources.PieceSourceText(setID, piece)
   local fsid, fst = farmSource(piece)
   if fst == ns.SRC.BOSS then
@@ -260,9 +328,17 @@ function Sources.PieceSourceText(setID, piece)
     end
   elseif piece.sourceType == ns.SRC.VENDOR then
     local ov = overrideFor(setID)
-    if ov and ov.npc then
-      return string.format(L["%s: %s"], Sources.SourceLabel(piece.sourceType), L[ov.npc])
+    local name = ov and ov.npc and L[ov.npc]
+    if not name then
+      local v = Sources.VendorFor(setID)
+      name = v and L[v.name]
     end
+    local txt = name
+      and string.format(L["%s: %s"], Sources.SourceLabel(piece.sourceType), name)
+      or Sources.SourceLabel(piece.sourceType)
+    local cost = Sources.PieceCost(piece)
+    if cost then txt = txt .. " — " .. cost end
+    return txt
   end
   return Sources.SourceLabel(piece.sourceType)
 end
@@ -361,7 +437,12 @@ function Sources.PieceSourceParts(setID, piece)
     return Sources.SourceLabel(piece.sourceType), qid and Sources.QuestTitle(qid) or nil
   elseif piece.sourceType == ns.SRC.VENDOR then
     local ov = overrideFor(setID)
-    return Sources.SourceLabel(piece.sourceType), (ov and ov.npc and L[ov.npc]) or nil
+    local name = (ov and ov.npc and L[ov.npc]) or nil
+    if not name then
+      local v = Sources.VendorFor(setID)
+      name = v and L[v.name] or nil
+    end
+    return Sources.SourceLabel(piece.sourceType), name
   end
   return Sources.SourceLabel(piece.sourceType), nil
 end
@@ -388,9 +469,14 @@ local function classifyLive(g)
   for _, pa in ipairs(pas) do
     local si = C_TransmogCollection.GetSourceInfo(pa.appearanceID)
     local st = si and si.sourceType
+    local fsid = pa.appearanceID
+    if st then
+      -- farm-corrected type (token / boss-sibling pieces classify as drops)
+      fsid, st = farmSource({ sourceID = pa.appearanceID, sourceType = st })
+    end
     local ct
     if st == ns.SRC.BOSS then
-      local drops = dropsFor(pa.appearanceID)
+      local drops = dropsFor(fsid)
       local idx = ensureEJIndex()
       local jid = drops and drops[1] and drops[1].instance and idx and idx[drops[1].instance]
       if jid then
@@ -561,7 +647,9 @@ function Sources.LocationLabel(g)
 
     local tally, counts, total, missingDrops = {}, {}, 0, false
     for _, piece in ipairs(pieces) do
-      local st = piece.sourceType
+      -- farm-corrected type: tier-token and boss-sibling pieces count as boss
+      -- drops so their instance names the row (not "Vendor")
+      local _, st = farmSource(piece)
       if st == ns.SRC.BOSS then
         local jid, instName = Sources.PieceInstance(setID, piece)
         local name = (jid and Sources.InstanceName(jid)) or instName
@@ -609,6 +697,18 @@ function Sources.LocationLabel(g)
       if baked and baked.q then
         local title = Sources.QuestTitle(baked.q)
         if title then label = title else nocache = true end
+      end
+    end
+
+    if not label then
+      -- vendor set with a baked selling NPC -> its zone (fallback: its name)
+      local v = Sources.VendorFor(setID)
+      if v then
+        if v.map and C_Map.GetMapInfo then
+          local info = C_Map.GetMapInfo(v.map)
+          label = info and info.name
+        end
+        if not label then label = L[v.name] end
       end
     end
 
@@ -707,12 +807,84 @@ function Sources.GuideTargets(setID)
   end)
   for _, t in ipairs(instTargets) do out[#out + 1] = t end
 
+  -- last resort: the baked selling NPC — where to BUY the set. Flagged
+  -- `vendor` so Suggest keeps its farm-only spirit (buying is not farming).
+  if #out == 0 then
+    local v = Sources.VendorFor(setID)
+    if v and v.map and v.x and v.y then
+      out[#out + 1] = { map = v.map, x = v.x, y = v.y, title = L[v.name], vendor = true }
+    end
+  end
+
   return out
 end
 
 --- Best single navigation target for a set (nil when there is none).
 function Sources.NavFor(setID)
   return Sources.GuideTargets(setID)[1]
+end
+
+--- Best navigation target for ONE piece: its instance when it farms as a boss
+--- drop, the set's selling NPC when it's sold, nil otherwise (world/quest
+--- pieces have no coordinates of their own).
+function Sources.NavForPiece(setID, piece)
+  local _, fst = farmSource(piece)
+  if fst == ns.SRC.BOSS then
+    local jid = Sources.PieceInstance(setID, piece)
+    if jid then return { jid = jid, title = Sources.InstanceName(jid) } end
+  elseif fst == ns.SRC.VENDOR then
+    local ov = overrideFor(setID)
+    if ov and ov.map and ov.x and ov.y then
+      return { map = ov.map, x = ov.x, y = ov.y, title = ov.npc and L[ov.npc], vendor = true }
+    end
+    local v = Sources.VendorFor(setID)
+    if v and v.map and v.x and v.y then
+      return { map = v.map, x = v.x, y = v.y, title = L[v.name], vendor = true }
+    end
+  end
+  return nil
+end
+
+--- Localized label of a filter bucket ("Raid", "Dungeon", …) — the list rows'
+--- location tag (the detail pane names the actual places).
+local BUCKET_LABELS
+function Sources.BucketLabel(bucket)
+  BUCKET_LABELS = BUCKET_LABELS or {
+    raid = L["Raid"], dungeon = L["Dungeon"], pvp = L["PvP"], quest = L["Quest"],
+    vendor = L["Vendor"], world = L["World"], unknown = L["Unknown"],
+  }
+  return BUCKET_LABELS[bucket or "unknown"]
+end
+
+--- Every location line for the detail pane — the complete "where does this
+--- set come from" list: instances and non-instance kinds (World, Vendor, …)
+--- together, ordered by how many pieces each one holds (instances win ties).
+function Sources.LocationLines(setID)
+  local entries = {}
+  for _, t in ipairs(Sources.GuideTargets(setID)) do
+    if t.jid and t.title then
+      entries[#entries + 1] = { title = t.title, n = t.pieces or 0, inst = true }
+    end
+  end
+  local kinds = {}
+  for _, piece in ipairs(ns.Pieces.For(setID)) do
+    local _, st = farmSource(piece)
+    if st and st ~= ns.SRC.BOSS then kinds[st] = (kinds[st] or 0) + 1 end
+  end
+  for _, st in ipairs({ ns.SRC.QUEST, ns.SRC.VENDOR, ns.SRC.WORLD,
+                        ns.SRC.ACHIEVEMENT, ns.SRC.PROFESSION, ns.SRC.TRADINGPOST }) do
+    if kinds[st] then
+      entries[#entries + 1] = { title = Sources.SourceLabel(st), n = kinds[st] }
+    end
+  end
+  table.sort(entries, function(a, b)
+    if a.n ~= b.n then return a.n > b.n end
+    if (a.inst or false) ~= (b.inst or false) then return a.inst or false end
+    return a.title < b.title
+  end)
+  local lines = {}
+  for _, e in ipairs(entries) do lines[#lines + 1] = e.title end
+  return lines
 end
 
 --- DEV (`/esc missing`): list visible groups with no navigation target, newest

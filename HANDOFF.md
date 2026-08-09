@@ -15,6 +15,15 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
 ## Module map (load order = .toc order)
 
 - `Core/Locale.lua` — `ns.L` metatable + `ns.Print`.
+- `Core/Profiles.lua` — hand-rolled settings profiles (AceDB UX, zero lib):
+  `DB.profiles[name]` tables + `DB.profileKeys[char]` + `DB.global` (account
+  bits: `onboard`, `forceEnglish` — exposed as `ns.gdb`). `ns.db` IS the
+  active profile; the rest of the addon never knows profiles exist. Flat v1
+  saved vars migrate into the Default profile on first load. SeedDefaults
+  (moved out of Core.lua) seeds any profile; Switch/CopyFrom/Reset/Delete +
+  Apply (re-push scale/position/minimap/arrow + refresh). Management UI:
+  "Profiles" canvas sub-page (UI.BuildProfilesPanel) with click-generated
+  MenuUtil menus.
 - `Locales/enUS.lua`, `frFR.lua` — enUS is the reference key list; frFR guarded
   by `GetLocale()`.
 - `Data/SetSources.lua` (GENERATED) — `EasySetCollectionSets[setID] = { ct, st,
@@ -25,6 +34,15 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
 - `Data/Overrides.lua` (HAND) — `EasySetCollectionOverrides.sets[baseSetID or
   setID]` (map/x/y/npc/questID nav targets, `ct`/`j` corrections, `legacy`) and
   `.instances[jid]` (`entranceMaps` for moving portals, manual entrance coords).
+- `Data/Vendors.lua` (GENERATED) — the baked vendor layer (Wowhead import,
+  fetch-vendor-sources.mjs): `npcs[npcID] = { name (English, displayed via
+  ns.L), map (uiMapID), x, y }`, `sets[setID] = { { n=npcID, s=side? } }`
+  (side 1=Alliance 2=Horde, omitted=both; Sources.VendorFor picks by faction,
+  located vendors first) and `costs[itemID] = { g=copper, c={{currencyID,qty}},
+  i={{itemID,qty}} }`. Powers vendor names in source lines/labels, per-piece
+  price display (Sources.PieceCost), the LocationLabel zone fallback, and a
+  LAST-RESORT GuideTargets map target flagged `vendor=true` — Suggest skips
+  those (farm-only spirit), the Guide button uses them.
 - `Modules/Sets.lua` — the catalog: `GetAllSets()` grouped by `baseSetID`;
   precomputes name/nameLower/expansionID/classMask/classSummary/hidden/favorite
   + `bucket`/`legacy` via `Sources.ClassifyGroup`. `EnsureCatalog()` returns nil
@@ -39,7 +57,10 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
   Every per-piece function resolves through farmSource(): when the set's own
   item is NOT a boss drop, a boss-drop sibling of the same appearance
   (GetAllAppearanceSources) becomes the piece's farmable face — T11 heroic
-  "vendor" pieces are farmed off Maloriak & co. Difficulty FACETS (size ×
+  "vendor" pieces are farmed off Maloriak & co. TOKEN pieces (tier sets, no
+  sibling) are promoted the same way when their OWN GetAppearanceSourceDrops
+  is non-empty (the client encodes the token→boss chain there): T5 "vendor"
+  pieces classify, label, lock and guide as Serpentshrine/Tempest Keep drops. Difficulty FACETS (size ×
   tier from difficultyID) power all difficulty comparisons — the client names
   the same difficulty three different ways.
 - `Modules/Lockouts.lua` — weekly lockouts (`GetSavedInstanceInfo`, refreshed
@@ -107,9 +128,15 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
   `CreateScrollBoxListLinearView` (extent 44), lazily-built Button rows,
   loading/empty states. **If the ScrollBox templates misbehave in game, the
   fallback is a manual 10-row pool — the row painting code is reusable as-is.**
-- `UI/Detail.lua` — middle pane: variants as segmented buttons, piece rows
+- `UI/Detail.lua` — middle pane: variants as segmented buttons, a LOCATION
+  LIST under them (Sources.LocationLines: every instance best-first, then the
+  non-instance kinds — the set list rows only carry the generic bucket via
+  Sources.BucketLabel), piece rows
   (item icon = collected state, async item names via `Item:ContinueOnItemLoad`,
-  coalesced repaint), action row (Guide / Try on / Journal), Travel dock, and
+  coalesced repaint; LEFT-click selects a piece — amber wash, the Guide
+  button then leads to ITS place via Sources.NavForPiece (instance, or the
+  selling NPC for vendor pieces) — RIGHT-click toggles it in the preview,
+  shift-click links it), action row (Guide / Try on / Journal), Travel dock, and
   the PREVIEW pane (third column): a `DressUpModel` of the player wearing the
   set (`SetUnit("player")` → `Undress()` → `TryOn(sourceID)` per piece, keyed
   on setID+mode+`Pieces.stamp` to avoid re-pose flicker), with a full-set /
@@ -119,6 +146,22 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
   icons, `W.AddDropdownArrow` (rotated ChatFrameExpandArrow texture) and the
   FavoritesIcon texture instead.
 - `UI/FilterPanel.lua` — side filter panel + MenuUtil class/sort dropdowns.
+- `UI/Onboard.lua` — first-open tour: three sequential bubbles (search →
+  Suggest → options gear) with a pulsing outline on the spotlighted control;
+  state in `db.onboard` (`step` resumes a closed-mid-tour window, `done` ends
+  it for good, `hello` = the one-time /esc chat hint printed only on a
+  genuinely fresh install — `ns.firstInstall`, set when EasySetCollectionDB
+  was nil at ADDON_LOADED). Entry point `Onboard.MaybeStart()` from UI.Show.
+- `UI/Setup.lua` — first-install setup WIZARD (installer-style window, 5
+  pages: welcome → guidance → notifications → window/minimap → done) binding
+  the same db fields as the Settings pages. The welcome page forks on
+  profiles: adopt an existing profile (applies it, SKIPS the setup) or
+  continue with the profile named in the box (a new name creates+switches —
+  prefilled with the current one, so plain Continue configures it). Auto-
+  opens at login while `gdb.onboard.wizard` is unset — set on any close, and
+  STAMPED for existing installs in initSavedVars (upgraders never see it);
+  `/esc setup` or the header "?" button reruns it. Complements the bubble
+  tour: the wizard configures, the tour shows where things are.
 - `Tools/Generator.lua` (DEV, stripped by package.sh) — see below.
 - `Core/Core.lua` — saved vars defaults, events, slash `/esc`.
 
@@ -161,6 +204,21 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
    matches them against the quest pieces' itemIDs — the client has no
    item→quest API, so the mapping is rebuilt in reverse. Early-exits once
    every quest item is matched.
+   Wowhead importers (DEV-ONLY, throttled ~1 req/s, resumable, stop cleanly
+   when CloudFront starts blocking):
+   - `fetch-quest-sources.mjs` fills the old-content quest gaps (XML feed);
+     its `--deep` pass re-tries the XML misses through the full item page's
+     "Reward from" listview (663→880/1260 matched). The ~380 still-unmatched
+     "quest" pieces are mostly client mislabels (really crafted / boss drops /
+     world drops — spot-checked); the HTML page does NOT embed the item's own
+     sourcemore, so a future classification fix needs an XML re-pass over the
+     misses recorded in `data/item-sources.json`.
+   - `fetch-vendor-sources.mjs` resolves vendor sets: one representative
+     piece per set → "sold by" listview (npc, faction react, zone, price),
+     then every discovered npc page → g_mapperData coords. `--costs` is the
+     long full-piece price crawl (7k+ items, run overnight). Wowhead zone ids
+     are AreaTable ids: hand-map them to uiMapIDs in `data/zone-uimap.json`
+     (the build warns, with URLs, about unmapped ones).
 2. `/reload` to flush `EasySetCollectionGen` to disk.
 3. Copy `WTF/Account/<acct>/SavedVariables/EasySetCollection.lua` to
    `data/sets-export.lua`.

@@ -4,7 +4,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.2] - 2026-08-09
+## [1.2.0] - 2026-08-09
+
+### Added
+- **Vendor sets know their vendor**: pieces sold by a NPC now name it and show
+  its price (gold, currencies, tokens), the set list shows the vendor's zone,
+  and the Guide button walks you to the seller. Suggest deliberately keeps
+  ignoring them — it suggests farms, not shopping trips.
+- **First-install setup**: a small setup window walks new installs through
+  the day-one options (guidance, notifications, window size, minimap button)
+  — rerun it anytime with `/esc setup` or the "?" button next to the window's
+  gear icon. Existing installs never see it uninvited. Its first page can
+  adopt an existing settings profile directly (skipping the setup), or
+  create a new one to configure.
+- **Settings profiles**: named profiles hold every setting, each character
+  picks the one it uses (like the big addon suites) — switch, create, copy,
+  reset and delete them from Options → Profiles. Existing settings become
+  the "Default" profile, shared by all characters until told otherwise;
+  tracked sets stay per-character.
+- **First-open tour**: three short bubbles introduce the search, the Suggest
+  button and the options the first time the window opens (skippable, shown
+  once). A brand new install also gets a one-time chat hint about `/esc`.
+
+### Changed
+- The set list tags rows with their category (Raid, Dungeon, Vendor, …); the
+  full story moved to the detail pane, which now lists EVERY place the set
+  comes from — all its instances, then World, Vendor and the like. No more
+  "the list says Serpentshrine but this piece says Tempest Keep".
+- Piece rows: left-click selects a piece and the Guide button walks you to
+  THAT piece (its instance — or its vendor); right-click toggles the piece
+  in the preview (shift-click still links it in chat).
+- Many more quest sets name their quest (and can be guided to): the source
+  import now recovers quest IDs the previous pass missed on old content.
+
+### Fixed
+- Tier sets bought with boss tokens (T4/T5/T6…) no longer read "Vendor": the
+  pieces classify, label and guide as drops of the instance their token falls
+  in, the set list names that instance, and the in-instance assistant and
+  lockouts treat them like any other boss farm.
 
 ### Changed
 - Suggest judges "farmable" per boss: an instance where every boss holding

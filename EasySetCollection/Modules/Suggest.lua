@@ -129,7 +129,9 @@ function Suggest.Candidates(wantCount)
           eligible = (tg.missing or 0) > 0 and not clearedBy[tg.title]
             and farmableMissing(setID, tg.jid, setFacets) > 0
         else
-          eligible = true   -- curated quest/vendor point
+          -- curated quest/world point yes, baked vendor no: Suggest farms,
+          -- it doesn't send you shopping (the Guide button still does)
+          eligible = not tg.vendor
         end
         if eligible then
           local cand = { nav = tg }

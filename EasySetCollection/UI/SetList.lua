@@ -19,7 +19,9 @@ SetList.selected = nil   -- baseSetID of the selected group
 local function tagText(g)
   local bits = {}
   bits[#bits + 1] = ns.ExpansionName(g.expansionID or 0)
-  local loc = ns.Sources.LocationLabel(g)
+  -- generic bucket tag (Raid / Dungeon / Vendor / …) — the actual place names
+  -- live in the detail pane's location list
+  local loc = ns.Sources.BucketLabel(g.bucket)
   if loc then bits[#bits + 1] = loc end
   if ns.db.filters.classID == 0 then
     if g.className then

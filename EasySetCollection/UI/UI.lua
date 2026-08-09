@@ -122,9 +122,33 @@ function UI.Init()
   f.gearTex = f.gear:CreateTexture(nil, "OVERLAY")
   f.gearTex:SetSize(14, 14)
   f.gearTex:SetPoint("CENTER")
-  f.gearTex:SetTexture("Interface\\ICONS\\INV_Misc_Gear_01")
-  f.gearTex:SetTexCoord(0.1, 0.9, 0.1, 0.9)
+  f.gearTex:SetTexture("Interface\\AddOns\\EasySetCollection\\Media\\settings.tga")
+  f.gearTex:SetVertexColor(0.86, 0.86, 0.90)
   f.gear:SetScript("OnClick", function() UI.OpenSettings() end)
+
+  -- wand — rerun the first-time setup wizard
+  f.setupBtn = W.MakeButton(f, "nav")
+  f.setupBtn:SetSize(22, 22)
+  f.setupBtn:SetPoint("RIGHT", f.gear, "LEFT", -4, 0)
+  f.setupBtn.label:Hide()
+  f.setupTex = f.setupBtn:CreateTexture(nil, "OVERLAY")
+  f.setupTex:SetSize(14, 14)
+  f.setupTex:SetPoint("CENTER")
+  f.setupTex:SetTexture("Interface\\AddOns\\EasySetCollection\\Media\\setup.tga")
+  f.setupTex:SetVertexColor(0.86, 0.86, 0.90)
+  f.setupBtn:SetScript("OnClick", function()
+    if ns.Setup then ns.Setup.Show() end
+  end)
+  f.setupBtn:SetScript("OnEnter", function(self)
+    W.Paint(self, true)
+    W.OwnTooltip(self, "ANCHOR_BOTTOM")
+    GameTooltip:AddLine(L["Rerun the first-time setup"])
+    GameTooltip:Show()
+  end)
+  f.setupBtn:SetScript("OnLeave", function(self)
+    W.Paint(self, false)
+    GameTooltip:Hide()
+  end)
 
   -- header separator
   f.sep = f:CreateTexture(nil, "ARTWORK")
@@ -294,6 +318,8 @@ function UI.Show()
       end
     end
   end
+
+  if ns.Onboard then ns.Onboard.MaybeStart() end
 end
 
 function UI.Hide()
@@ -365,6 +391,130 @@ function UI.BuildAboutPanel()
   eb:SetScript("OnEditFocusLost", function(self) self:HighlightText(0, 0); self:SetCursorPosition(0) end)
   eb:SetScript("OnMouseUp", function(self) self:HighlightText() end)
   eb:SetScript("OnChar", function(self) self:SetText(url); self:HighlightText() end)   -- keep read-only
+
+  f.OnCommit = function() end
+  f.OnDefault = function() end
+  f.OnRefresh = function() end
+
+  return f
+end
+
+--- Build the "Profiles" canvas frame: switch / create / copy / reset / delete
+--- settings profiles (Core/Profiles.lua). Menus are generated on click, so
+--- they always list the current profile set.
+function UI.BuildProfilesPanel()
+  if UI.profilesPanel then return UI.profilesPanel end
+  local f = CreateFrame("Frame", "EasySetCollectionProfilesPanel", UIParent)
+  UI.profilesPanel = f
+  local P = ns.Profiles
+
+  local title = f:CreateFontString(nil, "ARTWORK", "GameFontNormalHuge")
+  title:SetPoint("TOPLEFT", 10, -16)
+  title:SetText(L["Profiles"])
+
+  local div = f:CreateTexture(nil, "ARTWORK")
+  div:SetAtlas("Options_HorizontalDivider", true)
+  div:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
+
+  local desc = f:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  desc:SetPoint("TOPLEFT", div, "BOTTOMLEFT", 2, -12)
+  desc:SetWidth(560)
+  desc:SetJustifyH("LEFT")
+  desc:SetSpacing(3)
+  desc:SetText(L["Profiles hold every setting of the addon; each character picks the one it uses. Tracked sets stay per-character."])
+
+  local refresh   -- repaints the stateful labels (declared below)
+
+  -- current profile: a menu button listing every profile
+  local curLabel = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  curLabel:SetPoint("TOPLEFT", desc, "BOTTOMLEFT", 0, -22)
+  curLabel:SetText(L["Current profile"])
+
+  local curBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+  curBtn:SetSize(200, 24)
+  curBtn:SetPoint("TOPLEFT", curLabel, "BOTTOMLEFT", 0, -6)
+  curBtn:SetScript("OnClick", function(self)
+    if not (MenuUtil and MenuUtil.CreateContextMenu) then return end
+    MenuUtil.CreateContextMenu(self, function(_, root)
+      root:CreateTitle(L["Current profile"])
+      for _, name in ipairs(P.List()) do
+        root:CreateRadio(name,
+          function() return name == P.Current() end,
+          function() P.Switch(name) refresh() end)
+      end
+    end)
+  end)
+
+  -- new profile: name box + create-and-switch
+  local newLabel = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  newLabel:SetPoint("TOPLEFT", curBtn, "BOTTOMLEFT", 0, -18)
+  newLabel:SetText(L["New profile"])
+
+  local eb = CreateFrame("EditBox", nil, f, "InputBoxTemplate")
+  eb:SetPoint("TOPLEFT", newLabel, "BOTTOMLEFT", 6, -6)
+  eb:SetSize(194, 22)
+  eb:SetAutoFocus(false)
+  eb:SetMaxLetters(40)
+  eb:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+
+  local createBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+  createBtn:SetSize(100, 24)
+  createBtn:SetPoint("LEFT", eb, "RIGHT", 8, 0)
+  createBtn:SetText(L["Create"])
+  local function createProfile()
+    local name = (eb:GetText() or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    if name == "" then return end
+    P.Switch(name)
+    eb:SetText("")
+    eb:ClearFocus()
+    refresh()
+  end
+  createBtn:SetScript("OnClick", createProfile)
+  eb:SetScript("OnEnterPressed", createProfile)
+
+  -- copy from / reset / delete
+  local copyBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+  copyBtn:SetSize(200, 24)
+  copyBtn:SetPoint("TOPLEFT", eb, "BOTTOMLEFT", -6, -18)
+  copyBtn:SetText(L["Copy from"])
+  copyBtn:SetScript("OnClick", function(self)
+    if not (MenuUtil and MenuUtil.CreateContextMenu) then return end
+    MenuUtil.CreateContextMenu(self, function(_, root)
+      root:CreateTitle(L["Copy from"])
+      for _, name in ipairs(P.List()) do
+        if name ~= P.Current() then
+          root:CreateButton(name, function() P.CopyFrom(name) refresh() end)
+        end
+      end
+    end)
+  end)
+
+  local resetBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+  resetBtn:SetSize(200, 24)
+  resetBtn:SetPoint("LEFT", copyBtn, "RIGHT", 8, 0)
+  resetBtn:SetText(L["Reset profile"])
+  resetBtn:SetScript("OnClick", function() P.Reset() refresh() end)
+
+  local deleteBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+  deleteBtn:SetSize(200, 24)
+  deleteBtn:SetPoint("TOPLEFT", copyBtn, "BOTTOMLEFT", 0, -12)
+  deleteBtn:SetText(L["Delete a profile"])
+  deleteBtn:SetScript("OnClick", function(self)
+    if not (MenuUtil and MenuUtil.CreateContextMenu) then return end
+    MenuUtil.CreateContextMenu(self, function(_, root)
+      root:CreateTitle(L["Delete a profile"])
+      for _, name in ipairs(P.List()) do
+        if name ~= "Default" and name ~= P.Current() then
+          root:CreateButton(name, function() P.Delete(name) refresh() end)
+        end
+      end
+    end)
+  end)
+
+  refresh = function()
+    curBtn:SetText(P.Current())
+  end
+  f:SetScript("OnShow", refresh)
 
   f.OnCommit = function() end
   f.OnDefault = function() end
@@ -565,6 +715,11 @@ function UI.BuildSettings()
       L["Show a sample notification (alternates piece / set complete)."], true)
     local layout = SettingsPanel:GetLayout(notifCat)
     if layout and layout.AddInitializer then layout:AddInitializer(initializer) end
+  end
+
+  -- ── Profiles (canvas sub-page): settings profiles management ───────────────
+  if Settings.RegisterCanvasLayoutSubcategory then
+    Settings.RegisterCanvasLayoutSubcategory(category, UI.BuildProfilesPanel(), L["Profiles"])
   end
 
   Settings.RegisterAddOnCategory(category)
