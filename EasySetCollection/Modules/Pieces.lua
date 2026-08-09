@@ -39,31 +39,49 @@ local function visualCollected(visualID)
 end
 
 --- Piece records of a synthetic set: itemID -> live appearance/source data.
---- Items with no appearance (removed from the game) are skipped — they are
---- not collectable, so they don't count against progress either.
+--- C_TransmogCollection.GetItemInfo answers only once the ITEM DATA is
+--- loaded (old items start cold): unresolved items get a PLACEHOLDER record
+--- (no sourceID, "…" name) and an async load request — the detail pane's
+--- ContinueOnItemLoad repaint re-resolves them a moment later. The second
+--- return says whether any placeholder remains (callers skip their caches).
 local function extraPieces(x)
   local out = {}
+  local pending = false
   for _, itemID in ipairs(x.items or {}) do
     local visualID, sourceID = C_TransmogCollection.GetItemInfo
       and C_TransmogCollection.GetItemInfo(itemID)
-    if sourceID then
-      local si = C_TransmogCollection.GetSourceInfo(sourceID)
-      if si then
-        out[#out + 1] = {
-          sourceID = sourceID,
-          collected = visualCollected(visualID or si.visualID),
-          sourceCollected = si.isCollected,
-          itemID = si.itemID or itemID,
-          itemModID = si.itemModID,
-          invType = si.invType,
-          sourceType = si.sourceType,
-          name = si.name,
-          quality = si.quality,
-        }
+    local si = sourceID and C_TransmogCollection.GetSourceInfo(sourceID)
+    if si then
+      out[#out + 1] = {
+        sourceID = sourceID,
+        collected = visualCollected(visualID or si.visualID),
+        sourceCollected = si.isCollected,
+        itemID = si.itemID or itemID,
+        itemModID = si.itemModID,
+        invType = si.invType,
+        sourceType = si.sourceType,
+        name = si.name,
+        quality = si.quality,
+      }
+    else
+      pending = true
+      if C_Item and C_Item.RequestLoadItemDataByID then
+        pcall(C_Item.RequestLoadItemDataByID, itemID)
       end
+      out[#out + 1] = {
+        sourceID = nil,   -- placeholder: inert row until the item loads
+        collected = false,
+        sourceCollected = false,
+        itemID = itemID,
+        invType = C_Item.GetItemInventoryTypeByID
+          and C_Item.GetItemInventoryTypeByID(itemID) or nil,
+        sourceType = nil,
+        name = nil,
+        quality = nil,
+      }
     end
   end
-  return out
+  return out, pending
 end
 
 --- X/N progress of one variant set (cached until the collection changes).
@@ -74,9 +92,15 @@ function Pieces.Progress(setID)
     local n, t = 0, 0
     local x = Pieces.ExtraFor(setID)
     if x then
-      for _, rec in ipairs(extraPieces(x)) do
+      local recs, pending = extraPieces(x)
+      for _, rec in ipairs(recs) do
         t = t + 1
         if rec.collected then n = n + 1 end
+      end
+      if pending then
+        -- some items still cold: report but DON'T cache, the next call
+        -- (post item-load repaint) recounts with real data
+        return n, t
       end
     else
       local pas = C_TransmogSets.GetSetPrimaryAppearances and
@@ -212,7 +236,10 @@ function Pieces.SetIcon(setID)
     end
   end
   icon = bestItem and select(5, C_Item.GetItemInfoInstant(bestItem)) or false
-  iconCache[setID] = icon
+  if icon or not x then
+    -- synthetic sets skip negative caching: cold items may resolve later
+    iconCache[setID] = icon
+  end
   return icon or nil
 end
 
