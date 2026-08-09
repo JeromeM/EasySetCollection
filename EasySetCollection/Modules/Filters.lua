@@ -25,6 +25,8 @@ end
 --- Does one group survive the current filters?
 function Filters.Pass(g)
   local fl = ns.db.filters
+  -- list tab: journal sets and out-of-journal sets live on separate tabs
+  if (g.extra or false) ~= (ns.db.listTab == "extra") then return false end
   if g.hidden then return false end
   if g.legacy and not fl.showLegacy then return false end
 

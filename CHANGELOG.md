@@ -4,7 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.0] - 2026-08-09
+## [Unreleased]
+
+### Added
+- **1,720 out-of-journal sets** — dungeon recolors, world sets, old PvP
+  off-sets, event gear: everything the game's sets journal doesn't list, on
+  a new "Off-journal" tab. They behave like any other set: per-piece sources,
+  farm guidance, weekly lockouts, the in-instance assistant, Suggest and the
+  dressing-room preview all work. (Set names for these come from the
+  community and exist in English only.)
+- The set list folds into expansion sections (favorites get their own) —
+  click a header to collapse or expand it. The Journal tab starts fully
+  open, the Off-journal tab starts folded.
 
 ### Added
 - **Vendor sets know their vendor**: pieces sold by a NPC now name it and show

@@ -91,12 +91,38 @@ local function ensureRowWidgets(row)
   row.lock:SetIgnoreParentAlpha(true)
   row.lock:Hide()
 
+  -- expansion header widgets (hidden on set rows)
+  row.chev = row:CreateTexture(nil, "OVERLAY")
+  row.chev:SetTexture("Interface\\ChatFrame\\ChatFrameExpandArrow")
+  row.chev:SetSize(12, 12)
+  row.chev:SetPoint("LEFT", 8, 0)
+  row.chev:SetVertexColor(0.75, 0.75, 0.8)
+  row.chev:Hide()
+  row.headerText = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  row.headerText:SetPoint("LEFT", 26, 0)
+  row.headerText:SetPoint("RIGHT", -8, 0)
+  row.headerText:SetJustifyH("LEFT")
+  row.headerText:Hide()
+
   row:SetScript("OnClick", function(self)
-    if self.entry then SetList.Select(self.entry) end
+    local e = self.entry
+    if not e then return end
+    if e.header then
+      -- fold/unfold the section; the two tabs default differently, so the
+      -- journal remembers what's collapsed and the extra tab what's open
+      if ns.db.listTab == "extra" then
+        ns.db.listOpenExtra[e.key] = e.collapsed and true or nil
+      else
+        ns.db.listCollapsed[e.key] = (not e.collapsed) and true or nil
+      end
+      SetList.Refresh()
+      return
+    end
+    SetList.Select(e)
   end)
   row:SetScript("OnEnter", function(self)
     local g = self.entry
-    if not g then return end
+    if not g or g.header then return end
     ns.Widgets.OwnTooltip(self, "ANCHOR_RIGHT")
     GameTooltip:AddLine(g.name)
     for _, v in ipairs(g.variants) do
@@ -133,6 +159,25 @@ end
 local function paintRow(row)
   local g = row.entry
   if not g then return end
+
+  local isHeader = g.header or false
+  row.iconFrame:SetShown(not isHeader)
+  row.name:SetShown(not isHeader)
+  row.tag:SetShown(not isHeader)
+  row.count:SetShown(not isHeader)
+  row.barBG:SetShown(not isHeader)
+  row.barFill:SetShown(not isHeader)
+  row.chev:SetShown(isHeader)
+  row.headerText:SetShown(isHeader)
+  if isHeader then
+    row.star:Hide()
+    row.lock:Hide()
+    row.chev:SetRotation(g.collapsed and 0 or -math.pi / 2)
+    row.headerText:SetText(g.label .. "  " .. W.GREY .. g.n .. "|r")
+    row.bg:SetColorTexture(0.16, 0.16, 0.20, 0.9)
+    row:SetAlpha(1)
+    return
+  end
 
   row.icon:SetTexture(ns.Pieces.SetIcon(g.variants[1] and g.variants[1].setID)
     or "Interface\\Icons\\INV_Misc_QuestionMark")
@@ -220,10 +265,31 @@ function SetList.Build(f)
     return
   end
 
+  -- tabs: journal sets / out-of-journal sets (extra tab folded by default)
+  SetList.tabs = {}
+  local tabDefs = { { key = "journal", label = L["Journal"] }, { key = "extra", label = L["Off-journal"] } }
+  local tw = math.floor((UI.LIST_W - 14 - 4) / 2)
+  for i, def in ipairs(tabDefs) do
+    local b = W.MakeButton(f, "nav")
+    b:SetSize(tw, 22)
+    b:SetPoint("TOPLEFT", UI.PAD + (i - 1) * (tw + 4), -84)
+    b.label:SetText(def.label)
+    b._tabKey = def.key
+    b:SetScript("OnClick", function()
+      if ns.db.listTab ~= def.key then
+        ns.db.listTab = def.key
+        SetList.PaintTabs()
+        SetList.Refresh()
+      end
+    end)
+    SetList.tabs[i] = b
+  end
+  SetList.PaintTabs()
+
   local box = CreateFrame("Frame", nil, f, "WowScrollBoxList")
   SetList.box = box
-  box:SetPoint("TOPLEFT", UI.PAD, -84)
-  box:SetSize(UI.LIST_W - 14, UI.H - 84 - 34)
+  box:SetPoint("TOPLEFT", UI.PAD, -110)
+  box:SetSize(UI.LIST_W - 14, UI.H - 110 - 34)
 
   local bar = CreateFrame("EventFrame", nil, f, "MinimalScrollBar")
   SetList.bar = bar
@@ -237,6 +303,14 @@ function SetList.Build(f)
   ScrollUtil.InitScrollBoxListWithScrollBar(box, bar, view)
 end
 
+--- Repaint the tab segments (active = primary).
+function SetList.PaintTabs()
+  for _, b in ipairs(SetList.tabs or {}) do
+    b._kind = (ns.db.listTab == b._tabKey) and "primary" or "nav"
+    W.Paint(b, false)
+  end
+end
+
 --- Repaint the visible rows in place (selection change — no data change).
 function SetList.RepaintRows()
   if SetList.box and SetList.box.ForEachFrame then
@@ -247,8 +321,16 @@ function SetList.RepaintRows()
 end
 
 --- Select a group: remember it, hand it to the detail pane, repaint highlights.
+--- A selection from the OTHER population (Suggest, the in-instance assistant)
+--- switches the list tab so the row is actually visible.
 function SetList.Select(g)
   SetList.selected = g.baseSetID
+  local wantTab = g.extra and "extra" or "journal"
+  if ns.db.listTab ~= wantTab then
+    ns.db.listTab = wantTab
+    SetList.PaintTabs()
+    SetList.Refresh()
+  end
   ns.Detail.ShowGroup(g)
   SetList.RepaintRows()
 end
@@ -306,13 +388,46 @@ function SetList.Refresh()
     SetList.resetBtn:Hide()
     SetList.box:Show()
     SetList.bar:Show()
-    for i, g in ipairs(list) do g._zebra = (i % 2 == 0) end
-    SetList.box:SetDataProvider(CreateDataProvider(list),
+
+    -- expansion sections (expansion sort only): a clickable header per
+    -- expansion — favorites get their own section — folding its groups away
+    local entries = list
+    if (ns.db.sort or "expansion") == "expansion" then
+      entries = {}
+      local onExtra = (ns.db.listTab == "extra")
+      local curKey, curHeader
+      for _, g in ipairs(list) do
+        local key = g.favorite and "fav" or tostring(g.expansionID or 0)
+        if key ~= curKey then
+          curKey = key
+          local collapsed
+          if onExtra then collapsed = not ns.db.listOpenExtra[key]
+          else collapsed = ns.db.listCollapsed[key] or false end
+          curHeader = {
+            header = true, key = key, collapsed = collapsed, n = 0,
+            label = g.favorite and L["Favorites"] or ns.ExpansionName(g.expansionID or 0),
+          }
+          entries[#entries + 1] = curHeader
+        end
+        curHeader.n = curHeader.n + 1
+        if not curHeader.collapsed then entries[#entries + 1] = g end
+      end
+    end
+    SetList.current = entries
+
+    local zebra = 0
+    for _, e in ipairs(entries) do
+      if not e.header then
+        zebra = zebra + 1
+        e._zebra = (zebra % 2 == 0)
+      end
+    end
+    SetList.box:SetDataProvider(CreateDataProvider(entries),
       ScrollBoxConstants and ScrollBoxConstants.RetainScrollPosition or nil)
 
     -- once per session: bring the restored selection into view
     if SetList.selected and not SetList.didInitialScroll then
-      for i, g in ipairs(list) do
+      for i, g in ipairs(entries) do
         if g.baseSetID == SetList.selected then
           SetList.didInitialScroll = true
           if SetList.box.ScrollToElementDataIndex then

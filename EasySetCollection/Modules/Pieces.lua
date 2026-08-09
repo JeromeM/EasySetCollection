@@ -14,18 +14,78 @@ local Pieces = ns.Pieces
 local progress = {}   -- [setID] = { collected = n, total = m }, lazy
 local iconCache = {}  -- [setID] = fileID | false, lazy
 
+-- --- synthetic sets (Data/ExtraSets.lua, negative setIDs = -wowheadID) --------
+
+--- The baked extra-set record behind a synthetic setID, nil for journal sets.
+function Pieces.ExtraFor(setID)
+  local X = EasySetCollectionExtraSets
+  return (setID and setID < 0 and X) and X[-setID] or nil
+end
+
+--- Appearance-level "collected": any source of the visual is known (what
+--- pa.collected means for journal pieces).
+local function visualCollected(visualID)
+  if not visualID then return false end
+  local ok, all = pcall(C_TransmogCollection.GetAllAppearanceSources, visualID)
+  if ok and type(all) == "table" then
+    for _, sid in ipairs(all) do
+      if C_TransmogCollection.PlayerHasTransmogItemModifiedAppearance
+        and C_TransmogCollection.PlayerHasTransmogItemModifiedAppearance(sid) then
+        return true
+      end
+    end
+  end
+  return false
+end
+
+--- Piece records of a synthetic set: itemID -> live appearance/source data.
+--- Items with no appearance (removed from the game) are skipped — they are
+--- not collectable, so they don't count against progress either.
+local function extraPieces(x)
+  local out = {}
+  for _, itemID in ipairs(x.items or {}) do
+    local visualID, sourceID = C_TransmogCollection.GetItemInfo
+      and C_TransmogCollection.GetItemInfo(itemID)
+    if sourceID then
+      local si = C_TransmogCollection.GetSourceInfo(sourceID)
+      if si then
+        out[#out + 1] = {
+          sourceID = sourceID,
+          collected = visualCollected(visualID or si.visualID),
+          sourceCollected = si.isCollected,
+          itemID = si.itemID or itemID,
+          itemModID = si.itemModID,
+          invType = si.invType,
+          sourceType = si.sourceType,
+          name = si.name,
+          quality = si.quality,
+        }
+      end
+    end
+  end
+  return out
+end
+
 --- X/N progress of one variant set (cached until the collection changes).
 ---@return number collected, number total
 function Pieces.Progress(setID)
   local p = progress[setID]
   if not p then
     local n, t = 0, 0
-    local pas = C_TransmogSets.GetSetPrimaryAppearances and
-      C_TransmogSets.GetSetPrimaryAppearances(setID)
-    if pas then
-      for _, pa in ipairs(pas) do
+    local x = Pieces.ExtraFor(setID)
+    if x then
+      for _, rec in ipairs(extraPieces(x)) do
         t = t + 1
-        if pa.collected then n = n + 1 end
+        if rec.collected then n = n + 1 end
+      end
+    else
+      local pas = C_TransmogSets.GetSetPrimaryAppearances and
+        C_TransmogSets.GetSetPrimaryAppearances(setID)
+      if pas then
+        for _, pa in ipairs(pas) do
+          t = t + 1
+          if pa.collected then n = n + 1 end
+        end
       end
     end
     p = { collected = n, total = t }
@@ -66,23 +126,28 @@ end
 --- resolves them asynchronously via Item:ContinueOnItemLoad.
 function Pieces.For(setID)
   local out = {}
-  local pas = C_TransmogSets.GetSetPrimaryAppearances and
-    C_TransmogSets.GetSetPrimaryAppearances(setID)
-  if not pas then return out end
-  for _, pa in ipairs(pas) do
-    local si = C_TransmogCollection.GetSourceInfo(pa.appearanceID)
-    if si then
-      out[#out + 1] = {
-        sourceID = pa.appearanceID,
-        collected = pa.collected,
-        sourceCollected = si.isCollected,   -- that exact item known (tooltip detail)
-        itemID = si.itemID,
-        itemModID = si.itemModID,
-        invType = si.invType,
-        sourceType = si.sourceType,
-        name = si.name,
-        quality = si.quality,
-      }
+  local x = Pieces.ExtraFor(setID)
+  if x then
+    out = extraPieces(x)
+  else
+    local pas = C_TransmogSets.GetSetPrimaryAppearances and
+      C_TransmogSets.GetSetPrimaryAppearances(setID)
+    if not pas then return out end
+    for _, pa in ipairs(pas) do
+      local si = C_TransmogCollection.GetSourceInfo(pa.appearanceID)
+      if si then
+        out[#out + 1] = {
+          sourceID = pa.appearanceID,
+          collected = pa.collected,
+          sourceCollected = si.isCollected,   -- that exact item known (tooltip detail)
+          itemID = si.itemID,
+          itemModID = si.itemModID,
+          invType = si.invType,
+          sourceType = si.sourceType,
+          name = si.name,
+          quality = si.quality,
+        }
+      end
     end
   end
   table.sort(out, function(a, b)
@@ -123,14 +188,26 @@ function Pieces.SetIcon(setID)
   local icon = iconCache[setID]
   if icon ~= nil then return icon or nil end
   local bestItem, bestOrder
-  local pas = C_TransmogSets.GetSetPrimaryAppearances and
-    C_TransmogSets.GetSetPrimaryAppearances(setID)
-  for _, pa in ipairs(pas or {}) do
-    local si = C_TransmogCollection.GetSourceInfo(pa.appearanceID)
-    if si and si.itemID then
-      local order = EJ_GetInvTypeSortOrder and EJ_GetInvTypeSortOrder(si.invType or 0) or 99
+  local x = Pieces.ExtraFor(setID)
+  if x then
+    -- synthetic: straight over the baked itemIDs (inventory type is synchronous)
+    for _, itemID in ipairs(x.items or {}) do
+      local invType = C_Item.GetItemInventoryTypeByID and C_Item.GetItemInventoryTypeByID(itemID)
+      local order = (EJ_GetInvTypeSortOrder and invType and EJ_GetInvTypeSortOrder(invType)) or 99
       if not bestOrder or order < bestOrder then
-        bestOrder, bestItem = order, si.itemID
+        bestOrder, bestItem = order, itemID
+      end
+    end
+  else
+    local pas = C_TransmogSets.GetSetPrimaryAppearances and
+      C_TransmogSets.GetSetPrimaryAppearances(setID)
+    for _, pa in ipairs(pas or {}) do
+      local si = C_TransmogCollection.GetSourceInfo(pa.appearanceID)
+      if si and si.itemID then
+        local order = EJ_GetInvTypeSortOrder and EJ_GetInvTypeSortOrder(si.invType or 0) or 99
+        if not bestOrder or order < bestOrder then
+          bestOrder, bestItem = order, si.itemID
+        end
       end
     end
   end

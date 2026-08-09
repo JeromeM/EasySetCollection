@@ -351,9 +351,15 @@ end
 local function restoreSelection()
   local saved = ns.charDB and ns.charDB.selectedSetID
   if not saved then return end
-  local info = C_TransmogSets.GetSetInfo and C_TransmogSets.GetSetInfo(saved)
-  if not info then return end
-  local g = ns.Sets.GroupFor(info.baseSetID or info.setID)
+  local base
+  if saved < 0 then
+    base = saved   -- synthetic set: baseSetID == setID
+  else
+    local info = C_TransmogSets.GetSetInfo and C_TransmogSets.GetSetInfo(saved)
+    if not info then return end
+    base = info.baseSetID or info.setID
+  end
+  local g = ns.Sets.GroupFor(base)
   if not g then return end
   Detail.group = g
   Detail.setID = saved
@@ -731,7 +737,7 @@ function Detail.Refresh()
   Detail.trackBtn.label:SetText(tracked and L["Stop"] or L["Track"])
   W.Paint(Detail.trackBtn, false)
   Detail.trackBtn:Show()
-  Detail.journalBtn:Show()
+  Detail.journalBtn:SetShown(setID > 0)   -- synthetic sets have no journal page
 
   -- preview pane
   Detail.modelBG:Show()

@@ -34,6 +34,20 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
 - `Data/Overrides.lua` (HAND) — `EasySetCollectionOverrides.sets[baseSetID or
   setID]` (map/x/y/npc/questID nav targets, `ct`/`j` corrections, `legacy`) and
   `.instances[jid]` (`entranceMaps` for moving portals, manual entrance coords).
+- `Data/ExtraSets.lua` (GENERATED) — the OUT-OF-JOURNAL sets (Wowhead import,
+  fetch-extra-sets.mjs → 1720 sets): `[wowheadID] = { name (community English,
+  no locale variants exist), e (expansionID), at (armor type), rc (class
+  bitmask, nil = anyone), b (filter bucket, nil = classify from items),
+  items = {itemIDs} }`. The runtime shows them as SYNTHETIC catalog groups
+  keyed by NEGATIVE setIDs (-wowheadID, one variant, `g.extra = true`):
+  Pieces.ExtraFor branches Progress/For/SetIcon onto live item lookups
+  (C_TransmogCollection.GetItemInfo itemID → sourceID; appearance-collected =
+  any source of the visual known; items with no appearance are skipped), and
+  everything downstream (sources, farmSource, guide targets, lockouts,
+  Suggest, assistant, preview) flows through the same piece records. Journal
+  metadata APIs (GetSetInfo & co) return nil for negative ids — call sites
+  are guarded (Tracker shims the record, restoreSelection short-circuits,
+  the Journal button hides). Favorites for extras live in db.extraFav.
 - `Data/Vendors.lua` (GENERATED) — the baked vendor layer (Wowhead import,
   fetch-vendor-sources.mjs): `npcs[npcID] = { name (English, displayed via
   ns.L), map (uiMapID), x, y }`, `sets[setID] = { { n=npcID, s=side? } }`
@@ -126,7 +140,13 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
   queued loot **toast** (`NotifyNewPiece`).
 - `UI/SetList.lua` — the left list: `WowScrollBoxList` + `MinimalScrollBar` +
   `CreateScrollBoxListLinearView` (extent 44), lazily-built Button rows,
-  loading/empty states. **If the ScrollBox templates misbehave in game, the
+  loading/empty states. TWO TABS above the box (`db.listTab`): Journal /
+  Off-journal (`g.extra` gate in Filters.Pass; selecting a group of the other
+  population auto-switches). In expansion sort, the list folds into clickable
+  EXPANSION SECTIONS (favorites get their own): header entries carry
+  `{header, key, label, n, collapsed}`, rows branch on it, and the fold state
+  is asymmetric by design — `db.listCollapsed` (journal, default open) vs
+  `db.listOpenExtra` (extra, default folded). **If the ScrollBox templates misbehave in game, the
   fallback is a manual 10-row pool — the row painting code is reusable as-is.**
 - `UI/Detail.lua` — middle pane: variants as segmented buttons, a LOCATION
   LIST under them (Sources.LocationLines: every instance best-first, then the

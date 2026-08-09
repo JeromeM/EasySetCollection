@@ -209,3 +209,7 @@ L["Selected — the Guide button leads to this piece. Click to unselect."] = "S�
 L["Right-click: hide this piece in the preview."] = "Clic droit : masquer cette pièce dans l'aperçu."
 L["Right-click: show this piece in the preview."] = "Clic droit : afficher cette pièce dans l'aperçu."
 L["Guides to the selected piece."] = "Mène à la pièce sélectionnée."
+
+-- out-of-journal sets (Data/ExtraSets.lua)
+L["Off-journal"] = "Hors journal"
+L["Favorites"] = "Favoris"
