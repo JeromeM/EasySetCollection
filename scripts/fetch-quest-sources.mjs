@@ -12,11 +12,11 @@
 // --deep (HTML) pass — for the XML pass's definitive misses (cached null):
 // fetches the full item page, whose "Reward from" quest listview knows quests
 // the XML sourcemore omits (old content, multi-quest rewards). Rows prefer
-// side=3 (both factions), then popularity. The item's own json blob
-// (source/sourcemore) is also captured into data/item-sources.json — many
-// "quest" pieces turn out crafted (t=6) or boss drops (t=1); that file is the
-// raw material for future classification fixes. Items deep-fetched with no
-// quest found are recorded there too, so reruns skip them.
+// side=3 (both factions), then popularity. Every deep-fetched item is
+// recorded in data/item-sources.json (so reruns skip it); quest rows land
+// there too. NOTE: the item's OWN source/sourcemore is NOT in the HTML page
+// (tooltips load via XHR) — for classification data (crafted t=6, boss drop
+// t=1, world drop) re-fetch the misses' XML and read the full sourcemore.
 //
 // Reads  : data/sets-export.lua   (quest pieces + in-game questRewards)
 //          data/quest-sources.json (previous runs — resumable, misses cached)

@@ -180,10 +180,11 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
    when CloudFront starts blocking):
    - `fetch-quest-sources.mjs` fills the old-content quest gaps (XML feed);
      its `--deep` pass re-tries the XML misses through the full item page's
-     "Reward from" listview and captures each item's real source into
-     `data/item-sources.json` — many client-labeled "quest" pieces are really
-     crafted (t=6) or dungeon boss drops (t=1): raw material for future
-     classification fixes.
+     "Reward from" listview (663→880/1260 matched). The ~380 still-unmatched
+     "quest" pieces are mostly client mislabels (really crafted / boss drops /
+     world drops — spot-checked); the HTML page does NOT embed the item's own
+     sourcemore, so a future classification fix needs an XML re-pass over the
+     misses recorded in `data/item-sources.json`.
    - `fetch-vendor-sources.mjs` resolves vendor sets: one representative
      piece per set → "sold by" listview (npc, faction react, zone, price),
      then every discovered npc page → g_mapperData coords. `--costs` is the
