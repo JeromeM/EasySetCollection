@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - 2026-08-09
+
+### Changed
+- Suggest judges "farmable" per boss: an instance where every boss holding
+  your missing pieces is already dead this week is skipped, even when its
+  lockout isn't fully cleared.
+
+### Fixed
+- The minimap button sits on the minimap's actual edge (resized minimaps kept
+  it inside the ring), honours square-minimap addons (GetMinimapShape), and
+  its tooltip now mentions it can be dragged around.
+- Our tooltips' scale correction no longer lingers on the shared GameTooltip
+  (with a resized window, every other tooltip in the game inherited it).
+- Cataclysm and Mists raids share one lockout across every size and
+  difficulty (a 25-heroic clear blocks 10/25 normal too): their lockouts now
+  lock all variants of a set — no more suggesting a normal-mode farm the
+  game won't let you enter. An active lockout also binds the week's ENTRY to
+  its difficulty, so pieces of the other difficulty stop counting as
+  farmable even when their bosses are still alive.
+
 ## [1.1.1] - 2026-08-08
 
 ### Changed

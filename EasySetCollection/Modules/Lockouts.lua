@@ -102,6 +102,15 @@ local function isDifficultyName(desc)
   return diffNames[desc] or false
 end
 
+-- Cataclysm and Mists RAIDS share ONE lockout across sizes and difficulties
+-- (a 25-heroic clear blocks 10/25 normal for the week): their lockouts speak
+-- for every difficulty, whatever the facets say. EJ tier 4 = Cata, 5 = MoP
+-- (baked in Data/Instances.lua).
+local function sharedLockoutRaid(jid)
+  local inst = EasySetCollectionInstances and EasySetCollectionInstances[jid]
+  return (inst and inst.raid and (inst.tier == 4 or inst.tier == 5)) or false
+end
+
 --- The lockout that speaks for an instance: the variant difficulty's own
 --- lockout when the variant has one (a foreign difficulty's lockout neither
 --- locks nor informs it), otherwise the most-progressed lockout. Difficulty
@@ -179,7 +188,8 @@ function Lockouts.SetState(setID)
       local mapID = instanceMapFor(t.jid)
       local list = (mapID and locksByMap[mapID])
         or locks[normKey(ns.Sources.InstanceName(t.jid))]
-      local lk = list and pickLock(list, desc)
+      -- shared-lockout eras: any difficulty's lockout locks them all
+      local lk = list and pickLock(list, sharedLockoutRaid(t.jid) and nil or desc)
       if lk then
         local full = lk.total > 0 and lk.killed >= lk.total
         details[#details + 1] = {
@@ -244,6 +254,7 @@ function Lockouts.BossDead(jid, facets, bossName)
   local list = (mapID and locksByMap[mapID])
     or locks[normKey(ns.Sources.InstanceName(jid))]
   if not list then return false end
+  if sharedLockoutRaid(jid) then facets = nil end   -- any difficulty counts
   local key = normKey(bossName)
   for _, lk in ipairs(list) do
     if not facets
@@ -252,6 +263,19 @@ function Lockouts.BossDead(jid, facets, bossName)
     end
   end
   return false
+end
+
+--- For shared-lockout raids (Cata/MoP) with an ACTIVE lockout: the facets of
+--- that lockout. Entry is bound to it for the week — pieces of other
+--- difficulties are out of reach even from still-alive bosses. Nil when no
+--- lockout, or when the instance doesn't share lockouts across difficulties.
+function Lockouts.EntryFacets(jid)
+  if not (locks and jid) or not sharedLockoutRaid(jid) then return nil end
+  local mapID = instanceMapFor(jid)
+  local list = (mapID and locksByMap[mapID])
+    or locks[normKey(ns.Sources.InstanceName(jid))]
+  local lk = list and list[1]
+  return lk and ns.Sources.FacetsForDifficultyName(lk.diffName) or nil
 end
 
 --- "2 d 4 h" — remaining time before a lockout entry resets.

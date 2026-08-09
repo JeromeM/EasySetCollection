@@ -155,6 +155,7 @@ L["Browse every transmog set with per-piece sources, see what you still miss, an
 
 -- minimap / slash
 L["Left-click: open/close"] = "Left-click: open/close"
+L["Drag: move around the minimap"] = "Drag: move around the minimap"
 L["Right-click: open settings"] = "Right-click: open settings"
 L["Auto waypoint arrow: ON"] = "Auto waypoint arrow: ON"
 L["Auto waypoint arrow: OFF"] = "Auto waypoint arrow: OFF"

@@ -189,6 +189,18 @@ function W.OwnTooltip(owner, anchor)
   local want = UIParent:GetEffectiveScale()
   if eff and eff > 0 and want and math.abs(eff - want) > 0.001 then
     GameTooltip:SetScale(GameTooltip:GetScale() * want / eff)
+    GameTooltip._escScaled = true
+    -- restore the scale when OUR tooltip hides: GameTooltip is shared, and a
+    -- lingering correction rescales every other tooltip in the game
+    if not W._tooltipHooked then
+      W._tooltipHooked = true
+      GameTooltip:HookScript("OnHide", function(tt)
+        if tt._escScaled then
+          tt._escScaled = nil
+          tt:SetScale(1)
+        end
+      end)
+    end
   end
   return GameTooltip
 end
