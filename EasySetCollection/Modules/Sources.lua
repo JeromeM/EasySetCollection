@@ -824,6 +824,58 @@ function Sources.NavFor(setID)
   return Sources.GuideTargets(setID)[1]
 end
 
+--- Best navigation target for ONE piece: its instance when it farms as a boss
+--- drop, the set's selling NPC when it's sold, nil otherwise (world/quest
+--- pieces have no coordinates of their own).
+function Sources.NavForPiece(setID, piece)
+  local _, fst = farmSource(piece)
+  if fst == ns.SRC.BOSS then
+    local jid = Sources.PieceInstance(setID, piece)
+    if jid then return { jid = jid, title = Sources.InstanceName(jid) } end
+  elseif fst == ns.SRC.VENDOR then
+    local ov = overrideFor(setID)
+    if ov and ov.map and ov.x and ov.y then
+      return { map = ov.map, x = ov.x, y = ov.y, title = ov.npc and L[ov.npc], vendor = true }
+    end
+    local v = Sources.VendorFor(setID)
+    if v and v.map and v.x and v.y then
+      return { map = v.map, x = v.x, y = v.y, title = L[v.name], vendor = true }
+    end
+  end
+  return nil
+end
+
+--- Localized label of a filter bucket ("Raid", "Dungeon", …) — the list rows'
+--- location tag (the detail pane names the actual places).
+local BUCKET_LABELS
+function Sources.BucketLabel(bucket)
+  BUCKET_LABELS = BUCKET_LABELS or {
+    raid = L["Raid"], dungeon = L["Dungeon"], pvp = L["PvP"], quest = L["Quest"],
+    vendor = L["Vendor"], world = L["World"], unknown = L["Unknown"],
+  }
+  return BUCKET_LABELS[bucket or "unknown"]
+end
+
+--- Every location line for the detail pane, best instance first, then the
+--- non-instance source kinds present among the variant's pieces (World,
+--- Vendor, …) — the complete "where does this set come from" list.
+function Sources.LocationLines(setID)
+  local lines = {}
+  for _, t in ipairs(Sources.GuideTargets(setID)) do
+    if t.jid and t.title then lines[#lines + 1] = t.title end
+  end
+  local kinds = {}
+  for _, piece in ipairs(ns.Pieces.For(setID)) do
+    local _, st = farmSource(piece)
+    if st and st ~= ns.SRC.BOSS then kinds[st] = true end
+  end
+  for _, st in ipairs({ ns.SRC.QUEST, ns.SRC.VENDOR, ns.SRC.WORLD,
+                        ns.SRC.ACHIEVEMENT, ns.SRC.PROFESSION, ns.SRC.TRADINGPOST }) do
+    if kinds[st] then lines[#lines + 1] = Sources.SourceLabel(st) end
+  end
+  return lines
+end
+
 --- DEV (`/esc missing`): list visible groups with no navigation target, newest
 --- expansion first — the authoring worklist for Data/Overrides.lua.
 function Sources.DumpMissingNav()

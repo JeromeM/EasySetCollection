@@ -128,9 +128,15 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
   `CreateScrollBoxListLinearView` (extent 44), lazily-built Button rows,
   loading/empty states. **If the ScrollBox templates misbehave in game, the
   fallback is a manual 10-row pool — the row painting code is reusable as-is.**
-- `UI/Detail.lua` — middle pane: variants as segmented buttons, piece rows
+- `UI/Detail.lua` — middle pane: variants as segmented buttons, a LOCATION
+  LIST under them (Sources.LocationLines: every instance best-first, then the
+  non-instance kinds — the set list rows only carry the generic bucket via
+  Sources.BucketLabel), piece rows
   (item icon = collected state, async item names via `Item:ContinueOnItemLoad`,
-  coalesced repaint), action row (Guide / Try on / Journal), Travel dock, and
+  coalesced repaint; LEFT-click selects a piece — amber wash, the Guide
+  button then leads to ITS place via Sources.NavForPiece (instance, or the
+  selling NPC for vendor pieces) — RIGHT-click toggles it in the preview,
+  shift-click links it), action row (Guide / Try on / Journal), Travel dock, and
   the PREVIEW pane (third column): a `DressUpModel` of the player wearing the
   set (`SetUnit("player")` → `Undress()` → `TryOn(sourceID)` per piece, keyed
   on setID+mode+`Pieces.stamp` to avoid re-pose flicker), with a full-set /

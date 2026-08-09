@@ -51,6 +51,12 @@ function Detail.Build(f)
   Detail.lockLine:SetJustifyH("LEFT")
   Detail.lockLine:SetWordWrap(false)
 
+  -- the complete "where does this set come from" list (all instances + kinds)
+  Detail.locList = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  Detail.locList:SetWidth(DW)
+  Detail.locList:SetJustifyH("LEFT")
+  Detail.locList:SetSpacing(3)
+
   Detail.variantBtns = {}
   Detail.pieceRows = {}
   Detail.overflow = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -94,7 +100,11 @@ function Detail.Build(f)
     ns.Widgets.OwnTooltip(self, "ANCHOR_TOP")
     GameTooltip:AddLine(L["Guide me"])   -- first line = the tooltip's title font
     if self:IsEnabled() then
-      GameTooltip:AddLine(L["Set a waypoint to the place holding the most missing pieces."], 1, 1, 1, true)
+      if Detail.selectedPieceSID then
+        GameTooltip:AddLine(L["Guides to the selected piece."], 0.96, 0.72, 0.32, true)
+      else
+        GameTooltip:AddLine(L["Set a waypoint to the place holding the most missing pieces."], 1, 1, 1, true)
+      end
       GameTooltip:AddLine(L["Right-click to choose the destination."], 0.35, 0.7, 1.0)
     else
       GameTooltip:AddLine(L["No known destination for this set (quest/vendor/PvP sets need manual data)."], 1, 1, 1, true)
@@ -299,6 +309,7 @@ function Detail.HideWidgets()
   Detail.sub:Hide()
   Detail.bar:Hide()
   Detail.lockLine:Hide()
+  Detail.locList:Hide()
   Detail.overflow:Hide()
   Detail.actionPanel:Hide()
   for _, b in ipairs(Detail.variantBtns) do b:Hide() end
@@ -413,16 +424,21 @@ local function ensurePieceRow(i, f)
     if p.collected and not p.sourceCollected then
       GameTooltip:AddLine(L["Appearance collected from another item."], 0.7, 0.7, 0.7, true)
     end
-    if Detail.hiddenPieces[p.sourceID] then
-      GameTooltip:AddLine(L["Hidden in the preview — click to show it."], 1, 0.55, 0.35)
+    if Detail.selectedPieceSID == p.sourceID then
+      GameTooltip:AddLine(L["Selected — the Guide button leads to this piece. Click to unselect."], 0.96, 0.72, 0.32, true)
     else
-      GameTooltip:AddLine(L["Click to hide this piece in the preview."], 0.35, 0.7, 1.0)
+      GameTooltip:AddLine(L["Click: select — the Guide button then leads to this piece."], 0.35, 0.7, 1.0, true)
+    end
+    if Detail.hiddenPieces[p.sourceID] then
+      GameTooltip:AddLine(L["Right-click: show this piece in the preview."], 1, 0.55, 0.35)
+    else
+      GameTooltip:AddLine(L["Right-click: hide this piece in the preview."], 0.35, 0.7, 1.0)
     end
     GameTooltip:AddLine(L["Shift + click to link in chat"], 0.35, 0.7, 1.0)
     GameTooltip:Show()
   end)
   row:SetScript("OnLeave", GameTooltip_Hide)
-  row:SetScript("OnMouseUp", function(self)
+  row:SetScript("OnMouseUp", function(self, button)
     local p = self.piece
     if not p then return end
     if IsShiftKeyDown() then
@@ -435,10 +451,18 @@ local function ensurePieceRow(i, f)
       end
       return
     end
-    -- plain click: toggle this piece in the preview model
-    Detail.hiddenPieces[p.sourceID] = (not Detail.hiddenPieces[p.sourceID]) or nil
-    paintPieceRow(self, p, self.setID)
-    Detail.UpdatePreview(true)
+    if button == "RightButton" then
+      -- right-click: toggle this piece in the preview model
+      Detail.hiddenPieces[p.sourceID] = (not Detail.hiddenPieces[p.sourceID]) or nil
+      paintPieceRow(self, p, self.setID)
+      Detail.UpdatePreview(true)
+    else
+      -- left-click: (un)select the piece — the Guide button targets it
+      Detail.selectedPieceSID = (Detail.selectedPieceSID ~= p.sourceID) and p.sourceID or nil
+      for _, r in ipairs(Detail.pieceRows) do
+        if r:IsShown() and r.piece then paintPieceRow(r, r.piece, r.setID) end
+      end
+    end
     if GameTooltip:GetOwner() == self then self:GetScript("OnEnter")(self) end
   end)
 
@@ -454,6 +478,7 @@ paintPieceRow = function(row, piece, setID)
   local icon = piece.itemID and C_Item.GetItemIconByID and C_Item.GetItemIconByID(piece.itemID)
   row.icon:SetTexture(icon or "Interface\\Icons\\INV_Misc_QuestionMark")
   local hidden = Detail.hiddenPieces[piece.sourceID]
+  local selected = Detail.selectedPieceSID == piece.sourceID
   if hidden then
     row.bg:SetColorTexture(0.5, 0.15, 0.10, 0.22)
     row.icon:SetDesaturated(true)
@@ -469,6 +494,10 @@ paintPieceRow = function(row, piece, setID)
     row.icon:SetDesaturated(true)
     row.icon:SetVertexColor(1, 1, 1)
     row.iconFrame:SetBackdropBorderColor(0.45, 0.45, 0.5, 0.9)
+  end
+  if selected and not hidden then
+    -- guided piece: amber wash under the row (the Guide button targets it)
+    row.bg:SetColorTexture(0.96, 0.72, 0.32, 0.14)
   end
 
   local name = piece.name
@@ -529,10 +558,12 @@ function Detail.Refresh()
 
   local setID = Detail.setID or pickVariant(g)
   Detail.setID = setID
-  -- preview exclusions are per-variant: wipe them when the selection changes
+  -- preview exclusions and the guided piece are per-variant: wipe them when
+  -- the selection changes
   if Detail.hiddenForSet ~= setID then
     Detail.hiddenForSet = setID
     wipe(Detail.hiddenPieces)
+    Detail.selectedPieceSID = nil
   end
   local info = C_TransmogSets.GetSetInfo and C_TransmogSets.GetSetInfo(setID)
 
@@ -645,6 +676,19 @@ function Detail.Refresh()
     y = y - 28
   end
 
+  -- every place this variant comes from: all instances (best first), then
+  -- the non-instance kinds (World, Vendor, …)
+  local locLines = ns.Sources.LocationLines(setID)
+  if #locLines > 0 then
+    Detail.locList:ClearAllPoints()
+    Detail.locList:SetPoint("TOPLEFT", X, y)
+    Detail.locList:SetText(W.WHITE .. table.concat(locLines, "\n") .. "|r")
+    Detail.locList:Show()
+    y = y - Detail.locList:GetStringHeight() - 10
+  else
+    Detail.locList:Hide()
+  end
+
   -- piece rows (with a "+N more" overflow line if space runs out)
   local pieces = ns.Pieces.For(setID)
   local bottomLimit = -(ns.UI.H - ns.UI.PAD - 34 - 46)   -- above the travel dock
@@ -718,6 +762,17 @@ end
 --- Left-click "Guide me": the instance holding the most missing pieces.
 function Detail.GuideSelected()
   if not Detail.setID then return end
+  -- a selected piece takes priority: guide to ITS place (its instance, or the
+  -- selling NPC for vendor pieces); fall back to the set's best target
+  if Detail.selectedPieceSID then
+    for _, piece in ipairs(ns.Pieces.For(Detail.setID)) do
+      if piece.sourceID == Detail.selectedPieceSID then
+        local target = ns.Sources.NavForPiece(Detail.setID, piece)
+        if target then return Detail.GuideTo(target) end
+        break
+      end
+    end
+  end
   Detail.GuideTo(ns.Sources.NavFor(Detail.setID))
 end
 

@@ -27,6 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   once). A brand new install also gets a one-time chat hint about `/esc`.
 
 ### Changed
+- The set list tags rows with their category (Raid, Dungeon, Vendor, …); the
+  full story moved to the detail pane, which now lists EVERY place the set
+  comes from — all its instances, then World, Vendor and the like. No more
+  "the list says Serpentshrine but this piece says Tempest Keep".
+- Piece rows: left-click selects a piece and the Guide button walks you to
+  THAT piece (its instance — or its vendor); right-click toggles the piece
+  in the preview (shift-click still links it in chat).
 - Many more quest sets name their quest (and can be guided to): the source
   import now recovers quest IDs the previous pass missed on old content.
 
