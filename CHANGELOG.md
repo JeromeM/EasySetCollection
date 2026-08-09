@@ -23,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Many more quest sets name their quest (and can be guided to): the source
   import now recovers quest IDs the previous pass missed on old content.
 
+### Fixed
+- Tier sets bought with boss tokens (T4/T5/T6…) no longer read "Vendor": the
+  pieces classify, label and guide as drops of the instance their token falls
+  in, the set list names that instance, and the in-instance assistant and
+  lockouts treat them like any other boss farm.
+
 ### Changed
 - Suggest judges "farmable" per boss: an instance where every boss holding
   your missing pieces is already dead this week is skipped, even when its

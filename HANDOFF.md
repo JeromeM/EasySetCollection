@@ -48,7 +48,10 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
   Every per-piece function resolves through farmSource(): when the set's own
   item is NOT a boss drop, a boss-drop sibling of the same appearance
   (GetAllAppearanceSources) becomes the piece's farmable face — T11 heroic
-  "vendor" pieces are farmed off Maloriak & co. Difficulty FACETS (size ×
+  "vendor" pieces are farmed off Maloriak & co. TOKEN pieces (tier sets, no
+  sibling) are promoted the same way when their OWN GetAppearanceSourceDrops
+  is non-empty (the client encodes the token→boss chain there): T5 "vendor"
+  pieces classify, label, lock and guide as Serpentshrine/Tempest Keep drops. Difficulty FACETS (size ×
   tier from difficultyID) power all difficulty comparisons — the client names
   the same difficulty three different ways.
 - `Modules/Lockouts.lua` — weekly lockouts (`GetSavedInstanceInfo`, refreshed

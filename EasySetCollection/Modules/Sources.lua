@@ -93,12 +93,17 @@ local function bossAltSource(sourceID)
 end
 
 --- The sourceID (and its sourceType) a piece is farmed through: its own when
---- it is a boss drop, else a boss-drop sibling of the same appearance, else
+--- it is a boss drop, else a boss-drop sibling of the same appearance, else —
+--- TOKEN pieces (tier sets): the item is "sold by" a vendor, but the client's
+--- drops data still names the instance bosses through the token chain — its
+--- own sourceID promoted to boss when that drops list is non-empty, else
 --- itself unchanged.
 local function farmSource(piece)
   if piece.sourceType == ns.SRC.BOSS then return piece.sourceID, ns.SRC.BOSS end
   local alt = bossAltSource(piece.sourceID)
   if alt then return alt, ns.SRC.BOSS end
+  local drops = dropsFor(piece.sourceID)
+  if drops and #drops > 0 then return piece.sourceID, ns.SRC.BOSS end
   return piece.sourceID, piece.sourceType
 end
 
@@ -192,8 +197,10 @@ function Sources.PieceInstance(setID, piece)
     local p = baked.pieces and baked.pieces[piece.sourceID]
     local jid = p and p.j
     if not jid and (not p or p.j == nil) then
-      local st = (p and p.st) or piece.sourceType
-      if st == ns.SRC.BOSS then jid = baked.j end
+      -- farm-corrected type: token/sibling pieces inherit the set's baked
+      -- instance exactly like plain boss drops
+      local _, fst = farmSource(piece)
+      if fst == ns.SRC.BOSS then jid = baked.j end
     end
     if jid then return jid, Sources.InstanceName(jid) end
   end
@@ -453,9 +460,14 @@ local function classifyLive(g)
   for _, pa in ipairs(pas) do
     local si = C_TransmogCollection.GetSourceInfo(pa.appearanceID)
     local st = si and si.sourceType
+    local fsid = pa.appearanceID
+    if st then
+      -- farm-corrected type (token / boss-sibling pieces classify as drops)
+      fsid, st = farmSource({ sourceID = pa.appearanceID, sourceType = st })
+    end
     local ct
     if st == ns.SRC.BOSS then
-      local drops = dropsFor(pa.appearanceID)
+      local drops = dropsFor(fsid)
       local idx = ensureEJIndex()
       local jid = drops and drops[1] and drops[1].instance and idx and idx[drops[1].instance]
       if jid then
@@ -626,7 +638,9 @@ function Sources.LocationLabel(g)
 
     local tally, counts, total, missingDrops = {}, {}, 0, false
     for _, piece in ipairs(pieces) do
-      local st = piece.sourceType
+      -- farm-corrected type: tier-token and boss-sibling pieces count as boss
+      -- drops so their instance names the row (not "Vendor")
+      local _, st = farmSource(piece)
       if st == ns.SRC.BOSS then
         local jid, instName = Sources.PieceInstance(setID, piece)
         local name = (jid and Sources.InstanceName(jid)) or instName
