@@ -134,6 +134,13 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
   it for good, `hello` = the one-time /esc chat hint printed only on a
   genuinely fresh install — `ns.firstInstall`, set when EasySetCollectionDB
   was nil at ADDON_LOADED). Entry point `Onboard.MaybeStart()` from UI.Show.
+- `UI/Setup.lua` — first-install setup WIZARD (installer-style window, 5
+  pages: welcome → guidance → notifications → window/minimap → done) binding
+  the same db fields as the Settings pages. Auto-opens at login while
+  `db.onboard.wizard` is unset — set on any close, and STAMPED for existing
+  installs in initSavedVars (upgraders never see it); `/esc setup` reruns it.
+  Complements the bubble tour: the wizard configures, the tour shows where
+  things are.
 - `Tools/Generator.lua` (DEV, stripped by package.sh) — see below.
 - `Core/Core.lua` — saved vars defaults, events, slash `/esc`.
 

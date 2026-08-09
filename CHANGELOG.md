@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its price (gold, currencies, tokens), the set list shows the vendor's zone,
   and the Guide button walks you to the seller. Suggest deliberately keeps
   ignoring them — it suggests farms, not shopping trips.
+- **First-install setup**: a small setup window walks new installs through
+  the day-one options (guidance, notifications, window size, minimap button)
+  — rerun it anytime with `/esc setup`. Existing installs never see it
+  uninvited.
 - **First-open tour**: three short bubbles introduce the search, the Suggest
   button and the options the first time the window opens (skippable, shown
   once). A brand new install also gets a one-time chat hint about `/esc`.

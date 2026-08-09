@@ -14,7 +14,10 @@ local function initSavedVars()
   ns.db = EasySetCollectionDB
   ns.charDB = EasySetCollectionCharDB
 
-  ns.db.onboard = ns.db.onboard or {}   -- first-open tour state (UI/Onboard.lua)
+  ns.db.onboard = ns.db.onboard or {}   -- tour + wizard state (UI/Onboard|Setup.lua)
+  if not ns.firstInstall and ns.db.onboard.wizard == nil then
+    ns.db.onboard.wizard = true   -- existing install: never auto-open the wizard
+  end
 
   ns.db.minimap = ns.db.minimap or { angle = 200, hide = false }
   if ns.db.windowScale == nil then ns.db.windowScale = 1 end
@@ -99,6 +102,8 @@ local function onLogin()
     ns.db.onboard.hello = true
     ns.Print(L["Type /esc or click the minimap button to browse your sets."])
   end
+  -- ...and walk through the setup wizard (auto-opens until closed once)
+  if not ns.db.onboard.wizard and ns.Setup then ns.Setup.Show() end
   if ns.db.shown then ns.UI.Show() end
   -- restore the tracked-set window (it refreshes again once collection data
   -- is ready, via the first TRANSMOG_COLLECTION_UPDATED)
@@ -301,6 +306,9 @@ SlashCmdList.EASYSETCOLLECTION = function(msg)
     -- DEV-ONLY: quest-reward sweep (item -> quest mapping); run after /esc gen.
     if ns.Gen and ns.Gen.GenerateQuests then ns.Gen.GenerateQuests() end
 
+  elseif msg == "setup" then
+    if ns.Setup then ns.Setup.Show() end
+
   elseif msg == "help" then
     ns.Print(L["Commands:"])
     print("  " .. L["/esc — open/close the window"])
@@ -309,6 +317,7 @@ SlashCmdList.EASYSETCOLLECTION = function(msg)
     print("  " .. L["/esc minimap — toggle the minimap button"])
     print("  " .. L["/esc arrow — toggle the auto waypoint arrow"])
     print("  " .. L["/esc lang — toggle English addon texts"])
+    print("  " .. L["/esc setup — rerun the first-time setup"])
 
   else
     ns.UI.Toggle()
