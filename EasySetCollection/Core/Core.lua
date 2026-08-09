@@ -148,6 +148,8 @@ f:SetScript("OnEvent", function(_, event, arg1)
     C_Timer.After(3, function()
       if ns.Assist then ns.Assist.Check() end
     end)
+    -- the minimap may have been resized/reshaped (Edit Mode, minimap addons)
+    if ns.Minimap and ns.Minimap.UpdatePosition then ns.Minimap.UpdatePosition() end
     -- FarstriderLib trail: recompute the next hop once the position settles;
     -- also re-dress the preview model (SetUnit fails during loading screens)
     C_Timer.After(1.5, function()

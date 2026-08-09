@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   lockout isn't fully cleared.
 
 ### Fixed
+- The minimap button sits on the minimap's actual edge (resized minimaps kept
+  it inside the ring), honours square-minimap addons (GetMinimapShape), and
+  its tooltip now mentions it can be dragged around.
+- Our tooltips' scale correction no longer lingers on the shared GameTooltip
+  (with a resized window, every other tooltip in the game inherited it).
 - Cataclysm and Mists raids share one lockout across every size and
   difficulty (a 25-heroic clear blocks 10/25 normal too): their lockouts now
   lock all variants of a set — no more suggesting a normal-mode farm the

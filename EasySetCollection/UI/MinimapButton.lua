@@ -6,14 +6,29 @@ ns.Minimap = ns.Minimap or {}
 local Minimap = ns.Minimap
 local L = ns.L
 
-local RADIUS = 80
-
---- Place the button on the minimap ring at its saved angle.
+--- Place the button on the minimap EDGE at its saved angle: the radius comes
+--- from the minimap's real size (resized minimaps kept the old fixed radius
+--- inside the ring), and the GetMinimapShape() convention is honoured so
+--- square minimaps put the button on their edge too.
 ---@param btn table  the minimap Button frame to reposition
 local function updatePosition(btn)
+  local mm = _G.Minimap
   local angle = math.rad((ns.db.minimap and ns.db.minimap.angle) or 200)
+  local cos, sin = math.cos(angle), math.sin(angle)
+  local rx = (mm:GetWidth() or 140) / 2 + 5
+  local ry = (mm:GetHeight() or 140) / 2 + 5
+  local shape = (type(_G.GetMinimapShape) == "function") and _G.GetMinimapShape() or "ROUND"
+  if type(shape) == "string" and shape:find("SQUARE") then
+    local k = 1 / math.max(math.abs(cos), math.abs(sin), 0.001)
+    cos, sin = cos * k, sin * k
+  end
   btn:ClearAllPoints()
-  btn:SetPoint("CENTER", _G.Minimap, "CENTER", math.cos(angle) * RADIUS, math.sin(angle) * RADIUS)
+  btn:SetPoint("CENTER", mm, "CENTER", cos * rx, sin * ry)
+end
+
+--- Recompute the position (minimap resized — Edit Mode, minimap addons).
+function Minimap.UpdatePosition()
+  if Minimap.button then updatePosition(Minimap.button) end
 end
 
 --- Create the minimap button once and wire up its icon, click, drag and tooltip
@@ -66,6 +81,7 @@ function Minimap.Init()
     GameTooltip:AddLine(L["EasySetCollection"])
     GameTooltip:AddLine(L["Left-click: open/close"], 1, 1, 1)
     GameTooltip:AddLine(L["Right-click: open settings"], 1, 1, 1)
+    GameTooltip:AddLine(L["Drag: move around the minimap"], 1, 1, 1)
     GameTooltip:Show()
   end)
   btn:SetScript("OnLeave", GameTooltip_Hide)

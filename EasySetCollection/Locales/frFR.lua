@@ -153,6 +153,7 @@ L["Browse every transmog set with per-piece sources, see what you still miss, an
 
 -- minimap / slash
 L["Left-click: open/close"] = "Clic gauche : ouvrir/fermer"
+L["Drag: move around the minimap"] = "Glisser : déplacer autour de la minicarte"
 L["Right-click: open settings"] = "Clic droit : ouvrir les options"
 L["Auto waypoint arrow: ON"] = "Flèche de guidage auto : ON"
 L["Auto waypoint arrow: OFF"] = "Flèche de guidage auto : OFF"
