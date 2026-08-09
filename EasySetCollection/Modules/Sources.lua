@@ -257,10 +257,19 @@ function Sources.PieceCost(piece)
       or (math.floor(c.g / 10000) .. "g")
   end
   for _, cur in ipairs(c.c or {}) do
-    local info = C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo
-      and C_CurrencyInfo.GetCurrencyInfo(cur[1])
-    local icon = info and info.iconFileID and ("|T" .. info.iconFileID .. ":12|t ") or ""
-    bits[#bits + 1] = cur[2] .. " × " .. icon .. (info and info.name or "?")
+    -- Wowhead's "currency" cost slot also carries token ITEMS (tier tokens,
+    -- Marks of Honor): when the id isn't a real currency, read it as an item
+    local ok, info = pcall(C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo
+      or function() end, cur[1])
+    if ok and info and info.name and info.name ~= "" then
+      local icon = info.iconFileID and ("|T" .. info.iconFileID .. ":12|t ") or ""
+      bits[#bits + 1] = cur[2] .. " × " .. icon .. info.name
+    else
+      local name = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(cur[1])
+      local icon = C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(cur[1])
+      bits[#bits + 1] = cur[2] .. " × "
+        .. (icon and ("|T" .. icon .. ":12|t ") or "") .. (name or "…")
+    end
   end
   for _, it in ipairs(c.i or {}) do
     local name = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(it[1])
