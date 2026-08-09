@@ -294,6 +294,8 @@ function UI.Show()
       end
     end
   end
+
+  if ns.Onboard then ns.Onboard.MaybeStart() end
 end
 
 function UI.Hide()

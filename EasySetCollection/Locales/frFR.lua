@@ -165,3 +165,12 @@ L["/esc arrow — toggle the auto waypoint arrow"] = "/esc arrow — active/dés
 L["/esc lang — toggle English addon texts"] = "/esc lang — bascule les textes de l'addon en anglais"
 L["Addon language: English (type /reload to apply)"] = "Langue de l'addon : anglais (/reload pour appliquer)"
 L["Addon language: client language (type /reload to apply)"] = "Langue de l'addon : langue du client (/reload pour appliquer)"
+
+-- first-open tour (UI/Onboard.lua)
+L["Type /esc or click the minimap button to browse your sets."] = "Tapez /esc ou cliquez sur le bouton de la minicarte pour parcourir vos ensembles."
+L["Every set of every class is in here: search, then narrow down with the class and filter buttons."] = "Tous les ensembles de toutes les classes sont là : cherchez, puis affinez avec les boutons de classe et de filtres."
+L["Suggest picks the closest set you can still farm this week and guides you to it. Right-click to choose among the best candidates."] = "Suggérer choisit l'ensemble le plus proche encore farmable cette semaine et vous y guide. Clic droit : choisir parmi les meilleurs candidats."
+L["Tune the in-instance assistant, the loot toast and the guidance arrow in the options."] = "Réglez l'assistant d'instance, le toast de butin et la flèche de guidage dans les options."
+L["Next"] = "Suivant"
+L["Got it"] = "Compris"
+L["Skip"] = "Passer"

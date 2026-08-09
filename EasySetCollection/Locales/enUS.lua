@@ -167,3 +167,12 @@ L["/esc arrow — toggle the auto waypoint arrow"] = "/esc arrow — toggle the 
 L["/esc lang — toggle English addon texts"] = "/esc lang — toggle English addon texts"
 L["Addon language: English (type /reload to apply)"] = "Addon language: English (type /reload to apply)"
 L["Addon language: client language (type /reload to apply)"] = "Addon language: client language (type /reload to apply)"
+
+-- first-open tour (UI/Onboard.lua)
+L["Type /esc or click the minimap button to browse your sets."] = "Type /esc or click the minimap button to browse your sets."
+L["Every set of every class is in here: search, then narrow down with the class and filter buttons."] = "Every set of every class is in here: search, then narrow down with the class and filter buttons."
+L["Suggest picks the closest set you can still farm this week and guides you to it. Right-click to choose among the best candidates."] = "Suggest picks the closest set you can still farm this week and guides you to it. Right-click to choose among the best candidates."
+L["Tune the in-instance assistant, the loot toast and the guidance arrow in the options."] = "Tune the in-instance assistant, the loot toast and the guidance arrow in the options."
+L["Next"] = "Next"
+L["Got it"] = "Got it"
+L["Skip"] = "Skip"

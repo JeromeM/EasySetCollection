@@ -32,5 +32,6 @@ UI\Detail.lua
 UI\FilterPanel.lua
 UI\Tracker.lua
 UI\MinimapButton.lua
+UI\Onboard.lua
 Tools\Generator.lua
 Core\Core.lua

@@ -8,10 +8,13 @@ local L = ns.L
 --- Uses the `if x == nil` idiom so `false` values survive, and back-fills new
 --- filter keys on upgrade without wiping the user's choices.
 local function initSavedVars()
+  ns.firstInstall = (EasySetCollectionDB == nil)
   EasySetCollectionDB = EasySetCollectionDB or {}
   EasySetCollectionCharDB = EasySetCollectionCharDB or {}
   ns.db = EasySetCollectionDB
   ns.charDB = EasySetCollectionCharDB
+
+  ns.db.onboard = ns.db.onboard or {}   -- first-open tour state (UI/Onboard.lua)
 
   ns.db.minimap = ns.db.minimap or { angle = 200, hide = false }
   if ns.db.windowScale == nil then ns.db.windowScale = 1 end
@@ -91,6 +94,11 @@ local function onLogin()
   ns.UI.Init()
   ns.UI.BuildSettings()
   ns.Minimap.Init()
+  -- brand-new install: say how to open the window, once ever
+  if ns.firstInstall and not ns.db.onboard.hello then
+    ns.db.onboard.hello = true
+    ns.Print(L["Type /esc or click the minimap button to browse your sets."])
+  end
   if ns.db.shown then ns.UI.Show() end
   -- restore the tracked-set window (it refreshes again once collection data
   -- is ready, via the first TRANSMOG_COLLECTION_UPDATED)
