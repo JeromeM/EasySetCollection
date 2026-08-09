@@ -52,13 +52,24 @@ local function extraPieces(x)
       and C_TransmogCollection.GetItemInfo(itemID)
     local si = sourceID and C_TransmogCollection.GetSourceInfo(sourceID)
     if si then
-      -- source info of NON-journal items carries no name/quality: read them
-      -- from the item itself (cached by the load request below / the pane's
-      -- ContinueOnItemLoad repaint)
+      -- source info of NON-journal items carries no name/quality: try the
+      -- transmog item LINK first (local wardrobe data, instant), then the
+      -- item cache; still-cold items get a load request and resolve on the
+      -- pane's ContinueOnItemLoad repaint
       local iName, iQuality
+      if C_TransmogCollection.GetAppearanceSourceInfo then
+        local ok, _, _, _, _, _, link = pcall(C_TransmogCollection.GetAppearanceSourceInfo, sourceID)
+        if ok and type(link) == "string" then
+          local n = link:match("%[(.-)%]")
+          if n and n ~= "" then iName = n end
+        end
+      end
       if C_Item and C_Item.GetItemInfo then
         local n, _, q = C_Item.GetItemInfo(si.itemID or itemID)
-        iName, iQuality = n, q
+        iName, iQuality = iName or n, q
+      end
+      if not iName and C_Item and C_Item.RequestLoadItemDataByID then
+        pcall(C_Item.RequestLoadItemDataByID, si.itemID or itemID)
       end
       out[#out + 1] = {
         sourceID = sourceID,
