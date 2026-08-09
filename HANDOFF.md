@@ -15,6 +15,15 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
 ## Module map (load order = .toc order)
 
 - `Core/Locale.lua` — `ns.L` metatable + `ns.Print`.
+- `Core/Profiles.lua` — hand-rolled settings profiles (AceDB UX, zero lib):
+  `DB.profiles[name]` tables + `DB.profileKeys[char]` + `DB.global` (account
+  bits: `onboard`, `forceEnglish` — exposed as `ns.gdb`). `ns.db` IS the
+  active profile; the rest of the addon never knows profiles exist. Flat v1
+  saved vars migrate into the Default profile on first load. SeedDefaults
+  (moved out of Core.lua) seeds any profile; Switch/CopyFrom/Reset/Delete +
+  Apply (re-push scale/position/minimap/arrow + refresh). Management UI:
+  "Profiles" canvas sub-page (UI.BuildProfilesPanel) with click-generated
+  MenuUtil menus.
 - `Locales/enUS.lua`, `frFR.lua` — enUS is the reference key list; frFR guarded
   by `GetLocale()`.
 - `Data/SetSources.lua` (GENERATED) — `EasySetCollectionSets[setID] = { ct, st,

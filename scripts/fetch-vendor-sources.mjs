@@ -206,10 +206,13 @@ async function phaseNpcs() {
     consecutiveFails = 0;
     const mapper = parseMapper(body);
     if (!mapper) { npcCache[npcID] = { name }; done++; continue; } // no coords (instance/cave)
-    // zone with the most sightings; centroid of all its coords
+    // zone with the most sightings; centroid of all its coords. Multi-floor
+    // zones (cities, caves) key their groups by floor index instead of a
+    // plain array — flatten either shape.
     let best = null;
     for (const [zone, groups] of Object.entries(mapper)) {
-      const coords = groups.flatMap((g) => g.coords || []);
+      const list = Array.isArray(groups) ? groups : Object.values(groups || {}).flat();
+      const coords = list.flatMap((g) => (g && g.coords) || []);
       if (!coords.length) continue;
       if (!best || coords.length > best.coords.length) best = { zone: Number(zone), coords };
     }

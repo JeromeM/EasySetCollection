@@ -70,7 +70,7 @@ local function ensureFrames(parent)
   bubble.nextBtn:SetSize(76, 20)
   bubble.nextBtn:SetPoint("BOTTOMRIGHT", -10, 10)
   bubble.nextBtn:SetScript("OnClick", function()
-    local i = (ns.db.onboard and ns.db.onboard.step) or 1
+    local i = (ns.gdb.onboard and ns.gdb.onboard.step) or 1
     if i >= #STEPS then Onboard.Finish() else Onboard.ShowStep(i + 1) end
   end)
 end
@@ -84,7 +84,7 @@ function Onboard.ShowStep(i)
   if not target then return Onboard.Finish() end
 
   ensureFrames(f)
-  ns.db.onboard.step = i
+  ns.gdb.onboard.step = i
 
   bubble.text:SetText(step.text)
   bubble.counter:SetText(("%d/%d"):format(i, #STEPS))
@@ -106,13 +106,13 @@ end
 function Onboard.Finish()
   if bubble then bubble:Hide() end
   if highlight then highlight.pulse:Stop(); highlight:Hide() end
-  local ob = ns.db and ns.db.onboard
+  local ob = ns.gdb and ns.gdb.onboard
   if ob then ob.done = true; ob.step = nil end
 end
 
 --- Entry point, called on every UI.Show: runs (or resumes) the tour until done.
 function Onboard.MaybeStart()
-  local ob = ns.db and ns.db.onboard
+  local ob = ns.gdb and ns.gdb.onboard
   if not ob or ob.done then return end
   Onboard.ShowStep(ob.step or 1)
 end

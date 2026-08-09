@@ -11,6 +11,7 @@
 Core\Locale.lua
 Locales\enUS.lua
 Locales\frFR.lua
+Core\Profiles.lua
 Data\SetSources.lua
 Data\Instances.lua
 Data\Vendors.lua

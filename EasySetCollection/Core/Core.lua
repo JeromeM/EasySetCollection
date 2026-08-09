@@ -11,36 +11,17 @@ local function initSavedVars()
   ns.firstInstall = (EasySetCollectionDB == nil)
   EasySetCollectionDB = EasySetCollectionDB or {}
   EasySetCollectionCharDB = EasySetCollectionCharDB or {}
-  ns.db = EasySetCollectionDB
   ns.charDB = EasySetCollectionCharDB
 
-  ns.db.onboard = ns.db.onboard or {}   -- tour + wizard state (UI/Onboard|Setup.lua)
-  if not ns.firstInstall and ns.db.onboard.wizard == nil then
-    ns.db.onboard.wizard = true   -- existing install: never auto-open the wizard
+  -- profiles: migrate flat v1 saved vars, bind ns.db (this character's active
+  -- profile) and ns.gdb (account-wide), then seed the profile's defaults
+  ns.Profiles.Init()
+  ns.Profiles.SeedDefaults(ns.db)
+
+  ns.gdb.onboard = ns.gdb.onboard or {}   -- tour + wizard state (UI/Onboard|Setup.lua)
+  if not ns.firstInstall and ns.gdb.onboard.wizard == nil then
+    ns.gdb.onboard.wizard = true   -- existing install: never auto-open the wizard
   end
-
-  ns.db.minimap = ns.db.minimap or { angle = 200, hide = false }
-  if ns.db.windowScale == nil then ns.db.windowScale = 1 end
-  if ns.db.locked == nil then ns.db.locked = false end
-  if ns.db.shown == nil then ns.db.shown = false end
-  if ns.db.autoGuide == nil then ns.db.autoGuide = true end
-  if ns.db.sort == nil then ns.db.sort = "expansion" end
-
-  ns.db.arrow = ns.db.arrow or {}
-  if ns.db.arrow.enabled == nil then ns.db.arrow.enabled = true end
-  if ns.db.arrow.scale == nil then ns.db.arrow.scale = 1 end
-  if ns.db.arrow.textScale == nil then ns.db.arrow.textScale = 1 end
-
-  ns.db.toast = ns.db.toast or {}
-  if ns.db.toast.enabled == nil then ns.db.toast.enabled = true end
-  if ns.db.toast.sound == nil then ns.db.toast.sound = true end
-  if ns.db.toast.onlyComplete == nil then ns.db.toast.onlyComplete = false end
-  if ns.db.toast.showPiece == nil then ns.db.toast.showPiece = true end
-  if ns.db.toast.showSet == nil then ns.db.toast.showSet = true end
-  if ns.db.toast.showProgress == nil then ns.db.toast.showProgress = true end
-  if ns.db.toast.showOtherSets == nil then ns.db.toast.showOtherSets = true end
-  if ns.db.toast.otherClasses == nil then ns.db.toast.otherClasses = false end
-  if ns.db.preview == nil then ns.db.preview = "full" end   -- "full" | "owned"
 
   ns.charDB.trackedSets = ns.charDB.trackedSets or {}
   if ns.charDB.trackedSetID then   -- migrate the old single-set field
@@ -48,43 +29,13 @@ local function initSavedVars()
     ns.charDB.trackedSetID = nil
   end
 
-  ns.db.assist = ns.db.assist or {}
-  if ns.db.assist.enabled == nil then ns.db.assist.enabled = true end
-  if ns.db.assist.toast == nil then ns.db.assist.toast = true end
-
-  ns.db.tracker = ns.db.tracker or {}
-  if ns.db.tracker.hideCollected == nil then ns.db.tracker.hideCollected = false end
-  if ns.db.tracker.autoGuide == nil then ns.db.tracker.autoGuide = true end
-  if ns.db.tracker.locked == nil then ns.db.tracker.locked = false end
-
-  ns.db.filters = ns.db.filters or {}
-  local fl = ns.db.filters
-  fl.possession = fl.possession or {}
-  for _, k in ipairs({ "complete", "partial", "none" }) do
-    if fl.possession[k] == nil then fl.possession[k] = true end
-  end
-  fl.contentTypes = fl.contentTypes or {}
-  for _, k in ipairs(ns.CONTENT_BUCKETS or {}) do
-    if fl.contentTypes[k] == nil then fl.contentTypes[k] = true end
-  end
-  fl.expansions = fl.expansions or {}
-  local maxExp = (GetClientDisplayExpansionLevel and GetClientDisplayExpansionLevel())
-    or LE_EXPANSION_LEVEL_CURRENT or 11
-  for e = 0, maxExp do
-    if fl.expansions[e] == nil then fl.expansions[e] = true end
-  end
-  if fl.otherFaction == nil then fl.otherFaction = false end
-  if fl.showLegacy == nil then fl.showLegacy = true end
-  if fl.hideCleared == nil then fl.hideCleared = false end
-  -- fl.classID stays nil by default: nil = current class, 0 = all classes
-
   -- `/esc lang`: force the addon chrome to English. The locale files already
   -- ran (saved variables load after the Lua files), but translations are plain
   -- entries in ns.L whose metatable falls back to the English keys — wiping
   -- the table restores English. Game data (sets, items, quests, instances)
   -- stays in the client language either way.
-  if ns.db.forceEnglish == nil then ns.db.forceEnglish = false end
-  if ns.db.forceEnglish then
+  if ns.gdb.forceEnglish == nil then ns.gdb.forceEnglish = false end
+  if ns.gdb.forceEnglish then
     wipe(ns.L)
     _G["BINDING_NAME_EASYSETCOLLECTION_TOGGLE"] = ns.L["Open/close the window"]
   end
@@ -98,12 +49,12 @@ local function onLogin()
   ns.UI.BuildSettings()
   ns.Minimap.Init()
   -- brand-new install: say how to open the window, once ever
-  if ns.firstInstall and not ns.db.onboard.hello then
-    ns.db.onboard.hello = true
+  if ns.firstInstall and not ns.gdb.onboard.hello then
+    ns.gdb.onboard.hello = true
     ns.Print(L["Type /esc or click the minimap button to browse your sets."])
   end
   -- ...and walk through the setup wizard (auto-opens until closed once)
-  if not ns.db.onboard.wizard and ns.Setup then ns.Setup.Show() end
+  if not ns.gdb.onboard.wizard and ns.Setup then ns.Setup.Show() end
   if ns.db.shown then ns.UI.Show() end
   -- restore the tracked-set window (it refreshes again once collection data
   -- is ready, via the first TRANSMOG_COLLECTION_UPDATED)
@@ -261,8 +212,8 @@ SlashCmdList.EASYSETCOLLECTION = function(msg)
     ns.Print(ns.db.autoGuide and L["Auto waypoint arrow: ON"] or L["Auto waypoint arrow: OFF"])
 
   elseif msg == "lang" then
-    ns.db.forceEnglish = not ns.db.forceEnglish
-    ns.Print(ns.db.forceEnglish
+    ns.gdb.forceEnglish = not ns.gdb.forceEnglish
+    ns.Print(ns.gdb.forceEnglish
       and L["Addon language: English (type /reload to apply)"]
       or L["Addon language: client language (type /reload to apply)"])
 

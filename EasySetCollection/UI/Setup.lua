@@ -264,5 +264,5 @@ end
 --- Close the wizard and never auto-open it again (still available via /esc setup).
 function Setup.Finish()
   if frame then frame:Hide() end
-  if ns.db and ns.db.onboard then ns.db.onboard.wizard = true end
+  if ns.gdb and ns.gdb.onboard then ns.gdb.onboard.wizard = true end
 end
