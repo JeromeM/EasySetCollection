@@ -576,9 +576,9 @@ function Detail.Refresh()
   Detail.name:Show()
   y = y - math.max(20, Detail.name:GetStringHeight()) - 4
 
-  -- sub line: label · variant description · class (+ limited-time warning)
+  -- sub line: variant description · class (+ limited-time warning) — the
+  -- places live in the location list right below, not in Blizzard's label
   local bits = {}
-  if info and info.label and info.label ~= "" then bits[#bits + 1] = info.label end
   if info and info.description and info.description ~= "" then bits[#bits + 1] = info.description end
   if g.className then bits[#bits + 1] = g.className end
   local sub = W.GREY .. table.concat(bits, " · ") .. "|r"
@@ -590,6 +590,18 @@ function Detail.Refresh()
   Detail.sub:SetText(sub)
   Detail.sub:Show()
   y = y - 18
+
+  -- every place this variant comes from, most pieces first
+  local locLines = ns.Sources.LocationLines(setID)
+  if #locLines > 0 then
+    Detail.locList:ClearAllPoints()
+    Detail.locList:SetPoint("TOPLEFT", X, y)
+    Detail.locList:SetText(W.GREY .. table.concat(locLines, "\n") .. "|r")
+    Detail.locList:Show()
+    y = y - Detail.locList:GetStringHeight() - 10
+  else
+    Detail.locList:Hide()
+  end
 
   -- progress bar
   local n, t = ns.Pieces.Progress(setID)
@@ -674,19 +686,6 @@ function Detail.Refresh()
       b:Show()
     end
     y = y - 28
-  end
-
-  -- every place this variant comes from: all instances (best first), then
-  -- the non-instance kinds (World, Vendor, …)
-  local locLines = ns.Sources.LocationLines(setID)
-  if #locLines > 0 then
-    Detail.locList:ClearAllPoints()
-    Detail.locList:SetPoint("TOPLEFT", X, y)
-    Detail.locList:SetText(W.WHITE .. table.concat(locLines, "\n") .. "|r")
-    Detail.locList:Show()
-    y = y - Detail.locList:GetStringHeight() - 10
-  else
-    Detail.locList:Hide()
   end
 
   -- piece rows (with a "+N more" overflow line if space runs out)

@@ -856,23 +856,34 @@ function Sources.BucketLabel(bucket)
   return BUCKET_LABELS[bucket or "unknown"]
 end
 
---- Every location line for the detail pane, best instance first, then the
---- non-instance source kinds present among the variant's pieces (World,
---- Vendor, …) — the complete "where does this set come from" list.
+--- Every location line for the detail pane — the complete "where does this
+--- set come from" list: instances and non-instance kinds (World, Vendor, …)
+--- together, ordered by how many pieces each one holds (instances win ties).
 function Sources.LocationLines(setID)
-  local lines = {}
+  local entries = {}
   for _, t in ipairs(Sources.GuideTargets(setID)) do
-    if t.jid and t.title then lines[#lines + 1] = t.title end
+    if t.jid and t.title then
+      entries[#entries + 1] = { title = t.title, n = t.pieces or 0, inst = true }
+    end
   end
   local kinds = {}
   for _, piece in ipairs(ns.Pieces.For(setID)) do
     local _, st = farmSource(piece)
-    if st and st ~= ns.SRC.BOSS then kinds[st] = true end
+    if st and st ~= ns.SRC.BOSS then kinds[st] = (kinds[st] or 0) + 1 end
   end
   for _, st in ipairs({ ns.SRC.QUEST, ns.SRC.VENDOR, ns.SRC.WORLD,
                         ns.SRC.ACHIEVEMENT, ns.SRC.PROFESSION, ns.SRC.TRADINGPOST }) do
-    if kinds[st] then lines[#lines + 1] = Sources.SourceLabel(st) end
+    if kinds[st] then
+      entries[#entries + 1] = { title = Sources.SourceLabel(st), n = kinds[st] }
+    end
   end
+  table.sort(entries, function(a, b)
+    if a.n ~= b.n then return a.n > b.n end
+    if (a.inst or false) ~= (b.inst or false) then return a.inst or false end
+    return a.title < b.title
+  end)
+  local lines = {}
+  for _, e in ipairs(entries) do lines[#lines + 1] = e.title end
   return lines
 end
 
