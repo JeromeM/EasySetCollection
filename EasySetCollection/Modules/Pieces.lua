@@ -48,8 +48,12 @@ local function extraPieces(x)
   local out = {}
   local pending = false
   for _, itemID in ipairs(x.items or {}) do
-    local visualID, sourceID = C_TransmogCollection.GetItemInfo
-      and C_TransmogCollection.GetItemInfo(itemID)
+    -- NOTE: no `guard and f()` idiom here — it would truncate the call to a
+    -- single return value and lose sourceID (the bug that shipped as "…")
+    local visualID, sourceID
+    if C_TransmogCollection.GetItemInfo then
+      visualID, sourceID = C_TransmogCollection.GetItemInfo(itemID)
+    end
     local si = sourceID and C_TransmogCollection.GetSourceInfo(sourceID)
     if si then
       -- source info of NON-journal items carries no name/quality: try the
