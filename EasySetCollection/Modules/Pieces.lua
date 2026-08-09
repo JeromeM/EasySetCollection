@@ -52,6 +52,14 @@ local function extraPieces(x)
       and C_TransmogCollection.GetItemInfo(itemID)
     local si = sourceID and C_TransmogCollection.GetSourceInfo(sourceID)
     if si then
+      -- source info of NON-journal items carries no name/quality: read them
+      -- from the item itself (cached by the load request below / the pane's
+      -- ContinueOnItemLoad repaint)
+      local iName, iQuality
+      if C_Item and C_Item.GetItemInfo then
+        local n, _, q = C_Item.GetItemInfo(si.itemID or itemID)
+        iName, iQuality = n, q
+      end
       out[#out + 1] = {
         sourceID = sourceID,
         collected = visualCollected(visualID or si.visualID),
@@ -59,9 +67,9 @@ local function extraPieces(x)
         itemID = si.itemID or itemID,
         itemModID = si.itemModID,
         invType = si.invType,
-        sourceType = si.sourceType,
-        name = si.name,
-        quality = si.quality,
+        sourceType = (si.sourceType and si.sourceType > 0) and si.sourceType or nil,
+        name = (si.name and si.name ~= "") and si.name or iName,
+        quality = si.quality or iQuality,
       }
     else
       pending = true
