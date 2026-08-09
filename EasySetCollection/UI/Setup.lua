@@ -88,11 +88,41 @@ local PAGES = {
       local y = -8
       y = makeBody(p, y, L["EasySetCollection browses every transmog set, shows where each piece comes from, and guides you to the farm."])
       y = makeBody(p, y, L["This quick setup covers the essentials. Everything can be changed later in the options — the gear icon in the window, or a right-click on the minimap button."])
-      local btn = W.MakeButton(p, "nav")
-      btn:SetSize(200, 22)
-      btn:SetPoint("TOPLEFT", PAD, y - 6)
-      btn.label:SetText(L["Keep the defaults"])
-      btn:SetScript("OnClick", function() Setup.Finish() end)
+
+      -- path 1: adopt an existing profile — applies it and skips the setup
+      y = makeNote(p, y, L["Use an existing profile (this skips the setup):"])
+      local pick = W.MakeButton(p, "nav")
+      pick:SetSize(200, 22)
+      pick:SetPoint("TOPLEFT", PAD, y)
+      pick.label:SetText(L["Choose a profile"])
+      pick:SetScript("OnClick", function(self)
+        if not (MenuUtil and MenuUtil.CreateContextMenu and ns.Profiles) then return end
+        MenuUtil.CreateContextMenu(self, function(_, root)
+          root:CreateTitle(L["Current profile"])
+          for _, name in ipairs(ns.Profiles.List()) do
+            root:CreateRadio(name,
+              function() return name == ns.Profiles.Current() end,
+              function()
+                ns.Profiles.Switch(name)
+                Setup.Finish()
+              end)
+          end
+        end)
+      end)
+      y = y - 32
+
+      -- path 2: walk the setup for the named profile (a new name creates it)
+      y = makeNote(p, y, L["Or continue to set up this profile (type a new name to create one):"])
+      local eb = CreateFrame("EditBox", nil, p, "InputBoxTemplate")
+      eb:SetPoint("TOPLEFT", PAD + 6, y)
+      eb:SetSize(194, 22)
+      eb:SetAutoFocus(false)
+      eb:SetMaxLetters(40)
+      eb:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+      frame.profileBox = eb
+      p.rows[#p.rows + 1] = { refresh = function()
+        eb:SetText(ns.Profiles and ns.Profiles.Current() or "")
+      end }
     end,
   },
   {
@@ -227,6 +257,13 @@ local function ensureFrame()
   frame.nextBtn:SetSize(90, 24)
   frame.nextBtn:SetPoint("BOTTOMRIGHT", -PAD, 14)
   frame.nextBtn:SetScript("OnClick", function()
+    -- leaving the welcome page: honour the profile box (a new name creates
+    -- and switches, the rest of the setup then configures THAT profile)
+    if currentPage == 1 and frame.profileBox and ns.Profiles then
+      local name = (frame.profileBox:GetText() or ""):gsub("^%s+", ""):gsub("%s+$", "")
+      if name ~= "" and name ~= ns.Profiles.Current() then ns.Profiles.Switch(name) end
+      frame.profileBox:ClearFocus()
+    end
     if currentPage >= #PAGES then Setup.Finish() else Setup.ShowPage(currentPage + 1) end
   end)
 

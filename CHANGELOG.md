@@ -14,7 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **First-install setup**: a small setup window walks new installs through
   the day-one options (guidance, notifications, window size, minimap button)
   — rerun it anytime with `/esc setup` or the "?" button next to the window's
-  gear icon. Existing installs never see it uninvited.
+  gear icon. Existing installs never see it uninvited. Its first page can
+  adopt an existing settings profile directly (skipping the setup), or
+  create a new one to configure.
 - **Settings profiles**: named profiles hold every setting, each character
   picks the one it uses (like the big addon suites) — switch, create, copy,
   reset and delete them from Options → Profiles. Existing settings become

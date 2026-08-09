@@ -148,11 +148,14 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
   was nil at ADDON_LOADED). Entry point `Onboard.MaybeStart()` from UI.Show.
 - `UI/Setup.lua` — first-install setup WIZARD (installer-style window, 5
   pages: welcome → guidance → notifications → window/minimap → done) binding
-  the same db fields as the Settings pages. Auto-opens at login while
-  `db.onboard.wizard` is unset — set on any close, and STAMPED for existing
-  installs in initSavedVars (upgraders never see it); `/esc setup` reruns it.
-  Complements the bubble tour: the wizard configures, the tour shows where
-  things are.
+  the same db fields as the Settings pages. The welcome page forks on
+  profiles: adopt an existing profile (applies it, SKIPS the setup) or
+  continue with the profile named in the box (a new name creates+switches —
+  prefilled with the current one, so plain Continue configures it). Auto-
+  opens at login while `gdb.onboard.wizard` is unset — set on any close, and
+  STAMPED for existing installs in initSavedVars (upgraders never see it);
+  `/esc setup` or the header "?" button reruns it. Complements the bubble
+  tour: the wizard configures, the tour shows where things are.
 - `Tools/Generator.lua` (DEV, stripped by package.sh) — see below.
 - `Core/Core.lua` — saved vars defaults, events, slash `/esc`.
 
