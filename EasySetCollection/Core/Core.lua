@@ -273,46 +273,6 @@ SlashCmdList.EASYSETCOLLECTION = function(msg)
       end
     end
 
-  elseif msg == "farm" then
-    -- DEV (temporary): farmability chain of the SELECTED set, per target
-    local sel = ns.charDB and ns.charDB.selectedSetID
-    if not sel then ns.Print("select a set first") return end
-    local sinfo = C_TransmogSets.GetSetInfo and C_TransmogSets.GetSetInfo(sel)
-    local desc = sinfo and sinfo.description
-    local facets = ns.Sources.FacetsForDifficultyName(desc)
-    ns.Print(string.format("farm: setID=%d desc=%s", sel, tostring(desc)))
-    for _, t in ipairs(ns.Sources.GuideTargets(sel)) do
-      if t.jid then
-        local inst = EasySetCollectionInstances and EasySetCollectionInstances[t.jid]
-        ns.Print(string.format("target %s (jid=%d) raid=%s tier=%s missing=%d",
-          t.title or "?", t.jid, tostring(inst and inst.raid),
-          tostring(inst and inst.tier), t.missing or 0))
-        for _, piece in ipairs(ns.Pieces.For(sel)) do
-          if not piece.collected and ns.Sources.PieceInstanceSet(sel, piece)[t.jid]
-             and ns.Sources.PieceMatchesDifficulty(sel, piece, t.jid, facets) then
-            local boss = ns.Sources.PieceEncounterIn(sel, piece, t.jid)
-            print(string.format("  piece=%s boss=%s dead=%s",
-              tostring(piece.name or piece.itemID), tostring(boss),
-              tostring(ns.Lockouts and ns.Lockouts.BossDead(t.jid, facets, boss))))
-          end
-        end
-      end
-    end
-    for i = 1, (GetNumSavedInstances and GetNumSavedInstances() or 0) do
-      local name, _, _, _, locked, extended, _, _, _, diffName, numEnc = GetSavedInstanceInfo(i)
-      if locked or extended then
-        local dead = {}
-        for e = 1, numEnc or 0 do
-          local ok, bn, _, killed = pcall(GetSavedInstanceEncounterInfo, i, e)
-          if ok and bn and killed then dead[#dead + 1] = bn end
-        end
-        if #dead > 0 then
-          print(string.format("  saved %s (%s): dead = %s",
-            tostring(name), tostring(diffName), table.concat(dead, ", ")))
-        end
-      end
-    end
-
   elseif msg == "mapid" then
     -- report the current zone's UiMapID + localized name (handy for override coords)
     local id = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
