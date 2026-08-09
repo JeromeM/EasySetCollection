@@ -210,6 +210,58 @@ end
 --- Display line for a piece row in the detail pane:
 --- boss drops → "Encounter – Instance (Difficulty, …)", otherwise the localized
 --- source-type label ("Quête", "Vendeur", …).
+-- --- baked vendor layer (Data/Vendors.lua) -------------------------------------
+
+--- Best selling NPC for a variant set (the player's faction), from the baked
+--- vendor data: { npc, name, map, x, y } — located vendors win over name-only
+--- ones; nil when the set has none. Names are baked in English and displayed
+--- through ns.L (translatable, falls back to the key).
+function Sources.VendorFor(setID)
+  local V = EasySetCollectionVendors
+  local list = V and V.sets and V.sets[setID]
+  if not list then return nil end
+  local mySide = (UnitFactionGroup and UnitFactionGroup("player") == "Horde") and 2 or 1
+  local best
+  for _, e in ipairs(list) do
+    local side = e.s or 3
+    if side == 3 or side == mySide then
+      local npc = V.npcs and V.npcs[e.n]
+      if npc then
+        local cand = { npc = e.n, name = npc.name, map = npc.map, x = npc.x, y = npc.y }
+        if cand.map and cand.x then return cand end
+        best = best or cand
+      end
+    end
+  end
+  return best
+end
+
+--- Baked price of a piece's item ("30g · 3 × Mark of Honor"); nil when
+--- unknown. Currency names and icons resolve live (localized); item costs
+--- (tier tokens) may name-load asynchronously ("…" until the client caches
+--- them, repainted with the rest of the pane).
+function Sources.PieceCost(piece)
+  local V = EasySetCollectionVendors
+  local c = V and V.costs and piece.itemID and V.costs[piece.itemID]
+  if not c then return nil end
+  local bits = {}
+  if c.g and c.g > 0 then
+    bits[#bits + 1] = GetMoneyString and GetMoneyString(c.g, true)
+      or (math.floor(c.g / 10000) .. "g")
+  end
+  for _, cur in ipairs(c.c or {}) do
+    local info = C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo
+      and C_CurrencyInfo.GetCurrencyInfo(cur[1])
+    local icon = info and info.iconFileID and ("|T" .. info.iconFileID .. ":12|t ") or ""
+    bits[#bits + 1] = cur[2] .. " × " .. icon .. (info and info.name or "?")
+  end
+  for _, it in ipairs(c.i or {}) do
+    local name = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(it[1])
+    bits[#bits + 1] = it[2] .. " × " .. (name or "…")
+  end
+  if #bits > 0 then return table.concat(bits, " · ") end
+end
+
 function Sources.PieceSourceText(setID, piece)
   local fsid, fst = farmSource(piece)
   if fst == ns.SRC.BOSS then
@@ -260,9 +312,17 @@ function Sources.PieceSourceText(setID, piece)
     end
   elseif piece.sourceType == ns.SRC.VENDOR then
     local ov = overrideFor(setID)
-    if ov and ov.npc then
-      return string.format(L["%s: %s"], Sources.SourceLabel(piece.sourceType), L[ov.npc])
+    local name = ov and ov.npc and L[ov.npc]
+    if not name then
+      local v = Sources.VendorFor(setID)
+      name = v and L[v.name]
     end
+    local txt = name
+      and string.format(L["%s: %s"], Sources.SourceLabel(piece.sourceType), name)
+      or Sources.SourceLabel(piece.sourceType)
+    local cost = Sources.PieceCost(piece)
+    if cost then txt = txt .. " — " .. cost end
+    return txt
   end
   return Sources.SourceLabel(piece.sourceType)
 end
@@ -361,7 +421,12 @@ function Sources.PieceSourceParts(setID, piece)
     return Sources.SourceLabel(piece.sourceType), qid and Sources.QuestTitle(qid) or nil
   elseif piece.sourceType == ns.SRC.VENDOR then
     local ov = overrideFor(setID)
-    return Sources.SourceLabel(piece.sourceType), (ov and ov.npc and L[ov.npc]) or nil
+    local name = (ov and ov.npc and L[ov.npc]) or nil
+    if not name then
+      local v = Sources.VendorFor(setID)
+      name = v and L[v.name] or nil
+    end
+    return Sources.SourceLabel(piece.sourceType), name
   end
   return Sources.SourceLabel(piece.sourceType), nil
 end
@@ -613,6 +678,18 @@ function Sources.LocationLabel(g)
     end
 
     if not label then
+      -- vendor set with a baked selling NPC -> its zone (fallback: its name)
+      local v = Sources.VendorFor(setID)
+      if v then
+        if v.map and C_Map.GetMapInfo then
+          local info = C_Map.GetMapInfo(v.map)
+          label = info and info.name
+        end
+        if not label then label = L[v.name] end
+      end
+    end
+
+    if not label then
       if g.bucket == "pvp" then
         label = L["PvP"]
       else
@@ -706,6 +783,15 @@ function Sources.GuideTargets(setID)
     return a.title < b.title
   end)
   for _, t in ipairs(instTargets) do out[#out + 1] = t end
+
+  -- last resort: the baked selling NPC — where to BUY the set. Flagged
+  -- `vendor` so Suggest keeps its farm-only spirit (buying is not farming).
+  if #out == 0 then
+    local v = Sources.VendorFor(setID)
+    if v and v.map and v.x and v.y then
+      out[#out + 1] = { map = v.map, x = v.x, y = v.y, title = L[v.name], vendor = true }
+    end
+  end
 
   return out
 end

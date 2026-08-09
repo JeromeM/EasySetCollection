@@ -1,0 +1,16 @@
+{
+  "_comment": "Hand-authored: Wowhead zone id (AreaTable id, as used by npc pages' g_mapperData) -> in-game uiMapID. build-sets.mjs warns about vendors in zones missing from this table (with the Wowhead URL to identify each zone).",
+  "1519": 84,
+  "1637": 85,
+  "1537": 87,
+  "1638": 88,
+  "1657": 89,
+  "1497": 90,
+  "3487": 110,
+  "3557": 103,
+  "3703": 111,
+  "3523": 109,
+  "4395": 125,
+  "7332": 622,
+  "7333": 624
+}

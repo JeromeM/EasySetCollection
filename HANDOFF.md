@@ -25,6 +25,15 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
 - `Data/Overrides.lua` (HAND) — `EasySetCollectionOverrides.sets[baseSetID or
   setID]` (map/x/y/npc/questID nav targets, `ct`/`j` corrections, `legacy`) and
   `.instances[jid]` (`entranceMaps` for moving portals, manual entrance coords).
+- `Data/Vendors.lua` (GENERATED) — the baked vendor layer (Wowhead import,
+  fetch-vendor-sources.mjs): `npcs[npcID] = { name (English, displayed via
+  ns.L), map (uiMapID), x, y }`, `sets[setID] = { { n=npcID, s=side? } }`
+  (side 1=Alliance 2=Horde, omitted=both; Sources.VendorFor picks by faction,
+  located vendors first) and `costs[itemID] = { g=copper, c={{currencyID,qty}},
+  i={{itemID,qty}} }`. Powers vendor names in source lines/labels, per-piece
+  price display (Sources.PieceCost), the LocationLabel zone fallback, and a
+  LAST-RESORT GuideTargets map target flagged `vendor=true` — Suggest skips
+  those (farm-only spirit), the Guide button uses them.
 - `Modules/Sets.lua` — the catalog: `GetAllSets()` grouped by `baseSetID`;
   precomputes name/nameLower/expansionID/classMask/classSummary/hidden/favorite
   + `bucket`/`legacy` via `Sources.ClassifyGroup`. `EnsureCatalog()` returns nil
@@ -119,6 +128,12 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
   icons, `W.AddDropdownArrow` (rotated ChatFrameExpandArrow texture) and the
   FavoritesIcon texture instead.
 - `UI/FilterPanel.lua` — side filter panel + MenuUtil class/sort dropdowns.
+- `UI/Onboard.lua` — first-open tour: three sequential bubbles (search →
+  Suggest → options gear) with a pulsing outline on the spotlighted control;
+  state in `db.onboard` (`step` resumes a closed-mid-tour window, `done` ends
+  it for good, `hello` = the one-time /esc chat hint printed only on a
+  genuinely fresh install — `ns.firstInstall`, set when EasySetCollectionDB
+  was nil at ADDON_LOADED). Entry point `Onboard.MaybeStart()` from UI.Show.
 - `Tools/Generator.lua` (DEV, stripped by package.sh) — see below.
 - `Core/Core.lua` — saved vars defaults, events, slash `/esc`.
 
@@ -161,6 +176,20 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
    matches them against the quest pieces' itemIDs — the client has no
    item→quest API, so the mapping is rebuilt in reverse. Early-exits once
    every quest item is matched.
+   Wowhead importers (DEV-ONLY, throttled ~1 req/s, resumable, stop cleanly
+   when CloudFront starts blocking):
+   - `fetch-quest-sources.mjs` fills the old-content quest gaps (XML feed);
+     its `--deep` pass re-tries the XML misses through the full item page's
+     "Reward from" listview and captures each item's real source into
+     `data/item-sources.json` — many client-labeled "quest" pieces are really
+     crafted (t=6) or dungeon boss drops (t=1): raw material for future
+     classification fixes.
+   - `fetch-vendor-sources.mjs` resolves vendor sets: one representative
+     piece per set → "sold by" listview (npc, faction react, zone, price),
+     then every discovered npc page → g_mapperData coords. `--costs` is the
+     long full-piece price crawl (7k+ items, run overnight). Wowhead zone ids
+     are AreaTable ids: hand-map them to uiMapIDs in `data/zone-uimap.json`
+     (the build warns, with URLs, about unmapped ones).
 2. `/reload` to flush `EasySetCollectionGen` to disk.
 3. Copy `WTF/Account/<acct>/SavedVariables/EasySetCollection.lua` to
    `data/sets-export.lua`.

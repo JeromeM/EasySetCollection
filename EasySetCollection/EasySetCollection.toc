@@ -13,6 +13,7 @@ Locales\enUS.lua
 Locales\frFR.lua
 Data\SetSources.lua
 Data\Instances.lua
+Data\Vendors.lua
 Data\Overrides.lua
 Modules\Sets.lua
 Modules\Pieces.lua
