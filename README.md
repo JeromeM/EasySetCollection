@@ -1,57 +1,39 @@
 # EasySetCollection
 
-A World of Warcraft (retail) addon that makes transmog **set** collecting actually
-pleasant: a clear two-pane browser of every journal set — owned, partially
-collected or missing — with **per-piece sources** (which boss, which instance,
-which difficulty) and a **"Guide me"** button that points you straight at the
-raid, dungeon or zone that drops it.
+A World of Warcraft (retail) addon for transmog **set** collectors. It lists
+every set, shows what you are missing, tells you where each piece drops, and
+then takes you there.
 
-Pure Lua, zero libraries, flat modern look, native waypoints + on-screen 3D arrow.
+Pure Lua, no libraries, native waypoints and an on-screen 3D arrow.
 
 ## Features
 
-- **Set browser**: scrollable list of every base set with icon, collection
-  progress (X/N + bar), expansion / content-type / class tags. Two tabs:
-  the game's **Journal** sets, and **1,720 off-journal sets** — dungeon
-  recolors, world sets, old PvP off-sets, event gear the sets journal simply
-  doesn't list, farmable exactly like the rest.
-- **Filters & search**: instant text search, possession state (complete /
-  partial / none), expansion, content type (raid / dungeon / PvP / quest /
-  vendor / world), class selector (my class by default, any class, or all),
-  opposite-faction and unobtainable toggles, "hide what's locked this week".
-  Three sort modes (expansion, alphabetical, closest-to-completion) with an
-  optional favorites-first switch.
-- **Detail pane**: every place the set comes from (all its instances, then
-  World, Vendor, …), variants (Normal / Heroic / Mythic / LFR recolors) as
-  segmented buttons, one row per piece with its item icon (green border =
-  collected, desaturated = missing), slot, quality-colored name and the exact
-  source ("Boss – Instance (Difficulty)", quest name, or vendor + price).
-  Left-click selects a piece so "Guide me" leads to **that** piece, right-click
-  hides it from the preview, Shift+click links it in chat.
-- **Preview pane**: your own character wearing the selected set, right in the
-  window (drag to rotate, wheel to zoom) — switchable between the full set and
-  only the pieces you own.
-- **Guide me**: left-click sets a native waypoint + on-screen direction arrow to
-  the instance holding the most missing pieces (or to the vendor selling them);
-  right-click picks among every known source. With
-  [FarstriderLib](https://www.curseforge.com/wow/addons/farstriderlib)
-  installed (optional), you get turn-by-turn routing with clickable
-  hearthstone/teleport actions.
-- **Suggest**: one click picks the closest set you can still farm *this week* —
-  real travel distance, weekly lockouts and already-dead bosses taken into
-  account — and guides you there.
-- **Weekly lockouts**: sets whose bosses you already killed this week are
-  flagged (lock icon, "This week" tooltip) and can be filtered out, so you
-  never travel for a raid the game won't let you loot.
-- **In-instance assistant**: entering a dungeon or raid that still drops pieces
-  you miss announces them boss by boss (clickable item links, defeated bosses
-  flagged), and the window opens on the right set for the place. Optional.
-- **Loot toast**: a small notification whenever you collect a new set piece,
-  showing the set's fresh progress — and a green one when a set is completed.
-  Right-click dismisses it (and shows the next), left-click opens the set.
-- **Settings profiles**: named profiles hold every setting and each character
-  picks the one it uses; a first-install wizard walks new users through the
-  essentials (`/esc setup` to rerun it).
+- **Set list**: every set with its icon, your progress (X/N), expansion and
+  content type. Two tabs: the sets from the game's journal, and 1,720 sets the
+  journal doesn't list (dungeon recolors, world sets, old PvP sets, event
+  gear). Both work the same way.
+- **Filters and search**: text search, what you own, expansion, content type,
+  class, faction, unobtainable sets, and an option to hide what is already
+  locked for the week. Sort by expansion, name or progress.
+- **Piece list**: each piece shows its icon, slot, name and where it comes
+  from: boss and instance with the difficulty, quest name, or vendor and
+  price. Click a piece to make "Guide me" take you to that one.
+- **Preview**: your character wearing the set, in the window. You can show the
+  full set or only the pieces you own.
+- **Guide me**: sets a waypoint and shows a 3D arrow to the right instance (or
+  to the vendor). Right-click to choose another source. If you also use
+  [FarstriderLib](https://www.curseforge.com/wow/addons/farstriderlib), you get
+  step-by-step routing with hearthstone and teleport buttons.
+- **Suggest**: finds the closest set you can still farm this week and takes you
+  there. It skips what is locked and the bosses already killed.
+- **Weekly lockouts**: sets you can no longer loot this week are marked, with
+  the details in the tooltip.
+- **In-instance helper**: when you enter a dungeon or a raid that still drops
+  pieces you need, it tells you which boss has what. Can be turned off.
+- **Loot notification**: a small popup when you collect a piece, with the new
+  progress. Right-click closes it, left-click opens the set.
+- **Profiles**: your settings can live in named profiles, one per character if
+  you want. New users get a short setup window (`/esc setup` to see it again).
 
 ## Usage
 
