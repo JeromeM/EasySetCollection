@@ -139,14 +139,26 @@ local ejIndex     -- [localized instance name] = journalInstanceID
 local ejIsRaid    -- [journalInstanceID] = true for raids
 local ejBossIndex -- [localized encounter name] = journalInstanceID
 
+local ejWalked    -- the walk below runs at most once per session, ever
+
+-- Instances AND their encounters in a single walk, mirroring the generator's
+-- phase 1 (Tools/Generator.lua) — the shape the client is known to accept.
+-- Two details matter, and both cost a whole evening when missed:
+--   * an instance only lists its encounters once EJ_SelectInstance has run,
+--   * and that selection only answers while ITS OWN tier is the selected one,
+-- so the encounters have to be read inside the tier loop, not from a second
+-- pass over the finished index.
 local function ensureEJIndex()
-  if ejIndex then return ejIndex end
+  if ejWalked then return ejIndex end
   if not (EJ_GetNumTiers and EJ_SelectTier and EJ_GetInstanceByIndex) then
     if C_AddOns and C_AddOns.LoadAddOn then pcall(C_AddOns.LoadAddOn, "Blizzard_EncounterJournal") end
   end
   if not (EJ_GetNumTiers and EJ_SelectTier and EJ_GetInstanceByIndex) then return nil end
 
-  ejIndex, ejIsRaid = {}, {}
+  -- set before the loop: a walk that errors out must never be retried, or a
+  -- refresh calling in per piece turns one slow pass into a frozen client
+  ejWalked = true
+  ejIndex, ejIsRaid, ejBossIndex = {}, {}, {}
   local prevTier = EJ_GetCurrentTier and EJ_GetCurrentTier()
   for tier = 1, EJ_GetNumTiers() do
     EJ_SelectTier(tier)
@@ -157,6 +169,16 @@ local function ensureEJIndex()
         if not jid then break end
         if name and not ejIndex[name] then ejIndex[name] = jid end
         if isRaid then ejIsRaid[jid] = true end
+        if EJ_SelectInstance and EJ_GetEncounterInfoByIndex then
+          pcall(EJ_SelectInstance, jid)
+          local e = 1
+          while true do
+            local ok, ename = pcall(EJ_GetEncounterInfoByIndex, e, jid)
+            if not ok or not ename then break end
+            if not ejBossIndex[ename] then ejBossIndex[ename] = jid end
+            e = e + 1
+          end
+        end
         i = i + 1
       end
     end
@@ -166,32 +188,8 @@ local function ensureEJIndex()
   return ejIndex
 end
 
--- Encounter names -> their instance, built in a SEPARATE pass over the finished
--- instance index. EJ_GetEncounterInfoByIndex takes the instance id directly:
--- selecting instances while iterating them (as a first attempt did) corrupts
--- the Encounter Journal's own iteration and hangs the client.
 ensureBossIndex = function()
-  if ejBossIndex then return ejBossIndex end
-  local idx = ensureEJIndex()
-  if not (idx and EJ_GetEncounterInfoByIndex) then return nil end
-  ejBossIndex = {}
-  local seen = {}
-  local prevTier = EJ_GetCurrentTier and EJ_GetCurrentTier()
-  for _, jid in pairs(idx) do
-    if not seen[jid] then
-      seen[jid] = true
-      -- the journal only lists an instance's encounters once it is selected.
-      -- Safe here (we walk OUR table, not the journal's own iteration), and
-      -- the previous tier is restored below.
-      if EJ_SelectInstance then pcall(EJ_SelectInstance, jid) end
-      for e = 1, 40 do
-        local ok, ename = pcall(EJ_GetEncounterInfoByIndex, e, jid)
-        if not ok or not ename then break end
-        if not ejBossIndex[ename] then ejBossIndex[ename] = jid end
-      end
-    end
-  end
-  if prevTier and EJ_SelectTier then pcall(EJ_SelectTier, prevTier) end
+  ensureEJIndex()
   return ejBossIndex
 end
 

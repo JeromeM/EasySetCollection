@@ -105,9 +105,19 @@ const instMeta = gen.instances || {};
 
 const round1 = (n) => (n == null ? null : Math.round(n * 10) / 10);
 
+// Marks of Honor buy every legacy PvP piece, and nothing else — the one
+// reliable "this is arena/battleground gear" marker in the vendor data.
+const MARK_OF_HONOR = 137642;
+const costPairs = (row) => {
+  const c = row && row.cost && row.cost[0];
+  return Array.isArray(c) ? [...(c[1] || []), ...(c[2] || [])] : [];
+};
+const paidInMarks = (row) => costPairs(row).some((p) => p && p[0] === MARK_OF_HONOR);
+
 // pieces exchanged for a token a boss drops (see the vendor section below):
 // needed by classify(), which runs before the vendor layer is built
 const tokenPieces = new Set();
+const pvpItems = new Set();
 {
   const VEND = join(ROOT, 'data', 'vendor-sources.json');
   const TOK = join(ROOT, 'data', 'token-sources.json');
@@ -115,7 +125,12 @@ const tokenPieces = new Set();
     const vend = JSON.parse(readFileSync(VEND, 'utf8'));
     const tok = JSON.parse(readFileSync(TOK, 'utf8'));
     for (const [itemID, rows] of Object.entries(vend)) {
-      const cost = Array.isArray(rows) && rows[0] && rows[0].cost && rows[0].cost[0];
+      if (!Array.isArray(rows) || !rows.length) continue;
+      // Legacy purveyors (Karynna & co) also trade old arena gear for tier
+      // tokens, so a Gladiator helm looks exactly like a tier helm here. It
+      // is not a raid drop: the farm is Marks of Honor, never the boss.
+      if (rows.some(paidInMarks)) { pvpItems.add(Number(itemID)); continue; }
+      const cost = rows[0].cost && rows[0].cost[0];
       if (!Array.isArray(cost)) continue;
       for (const pair of [...(cost[1] || []), ...(cost[2] || [])]) {
         const info = pair && pair[0] && tok[pair[0]];
@@ -261,11 +276,15 @@ if (existsSync(VEND_SRC)) {
       if (Array.isArray(cached) && cached.length) { rows = cached; break; }
     }
     if (!rows) continue;
+    // an arena set is farmed with Marks of Honor: name that vendor, not the
+    // legacy purveyor who happens to also take a tier token for it
+    const pvpSet = items.some((i) => pvpItems.has(i));
     const bySide = {};
     for (const r of rows) {
       const npc = npcCache[r.id];
       const located = npc && npc.zone != null && zoneMap[npc.zone] != null;
-      const rank = (located ? 1e6 : 0) + (r.pop || 0);
+      const rank = (pvpSet && paidInMarks(r) ? 1e8 : 0)
+        + (located ? 1e6 : 0) + (r.pop || 0);
       const s = sideOf(r.react);
       if (!bySide[s] || rank > bySide[s].rank) bySide[s] = { row: r, rank };
     }
@@ -328,6 +347,7 @@ if (existsSync(VEND_SRC)) {
     const tokenInfo = JSON.parse(readFileSync(TOK_SRC, 'utf8'));
     for (const [itemID, rows] of Object.entries(vendCache)) {
       if (!Array.isArray(rows) || !rows.length) continue;
+      if (pvpItems.has(Number(itemID))) continue;   // arena gear, not tier
       const cost = rows[0].cost && rows[0].cost[0];
       if (!Array.isArray(cost)) continue;
       for (const pair of [...(cost[1] || []), ...(cost[2] || [])]) {
