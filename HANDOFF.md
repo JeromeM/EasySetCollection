@@ -148,7 +148,12 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
   loading/empty states. TWO TABS above the box (`db.listTab`): Journal /
   Off-journal (`g.extra` gate in Filters.Pass; selecting a group of the other
   population auto-switches). Collapsible expansion sections were tried and
-  REMOVED on Jérôme's call (2026-08-10) — the list stays flat. **If the ScrollBox templates misbehave in game, the
+  REMOVED on Jérôme's call (2026-08-10) — the list stays flat.
+  `SetList.ToggleFavorite(g)` backs the clickable star badge and the row's
+  right-click: journal sets go through `C_TransmogSets.SetIsFavorite` (the
+  flag can sit on any variant, so unfavoriting clears them all, and
+  TRANSMOG_SETS_UPDATE_FAVORITE repaints us), out-of-journal sets through
+  `db.extraFav[wowheadID]`. **If the ScrollBox templates misbehave in game, the
   fallback is a manual 10-row pool — the row painting code is reusable as-is.**
 - `UI/Detail.lua` — middle pane: variants as segmented buttons, a LOCATION
   LIST under them (Sources.LocationLines: every instance best-first, then the

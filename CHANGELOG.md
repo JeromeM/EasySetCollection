@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Sets can be marked as favorites from the list: click the star badge on a row
+  (it shows up faintly when you hover), or right-click the row. Journal sets
+  use the game's own favorites, so the wardrobe agrees; off-journal sets keep
+  theirs in your profile.
+
 ## [1.3.0] - 2026-08-10
 
 ### Added
