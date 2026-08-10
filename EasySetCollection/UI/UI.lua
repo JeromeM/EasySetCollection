@@ -43,6 +43,14 @@ function UI.Init()
   if UI.frame then return end
 
   local f = CreateFrame("Frame", "EasySetCollectionFrame", UIParent, "BackdropTemplate")
+  -- Esc closes the window like any standard panel (user request). The game
+  -- calls Hide() directly, so the open-state bookkeeping lives in OnHide.
+  tinsert(UISpecialFrames, "EasySetCollectionFrame")
+  f:HookScript("OnHide", function()
+    if ns.db then ns.db.shown = false end
+    if ns.FilterPanel and ns.FilterPanel.Hide then ns.FilterPanel.Hide() end
+    if ns.Travel then ns.Travel.Hide() end
+  end)
   UI.frame = f
   f:SetSize(UI.W, UI.H)
   f:SetScale((ns.db and ns.db.windowScale) or 1)
@@ -125,6 +133,16 @@ function UI.Init()
   f.gearTex:SetTexture("Interface\\AddOns\\EasySetCollection\\Media\\settings.tga")
   f.gearTex:SetVertexColor(0.86, 0.86, 0.90)
   f.gear:SetScript("OnClick", function() UI.OpenSettings() end)
+  f.gear:SetScript("OnEnter", function(self)
+    W.Paint(self, true)
+    W.OwnTooltip(self, "ANCHOR_BOTTOM")
+    GameTooltip:AddLine(L["Open the options"])
+    GameTooltip:Show()
+  end)
+  f.gear:SetScript("OnLeave", function(self)
+    W.Paint(self, false)
+    GameTooltip:Hide()
+  end)
 
   -- wand — rerun the first-time setup wizard
   f.setupBtn = W.MakeButton(f, "nav")
@@ -206,6 +224,19 @@ function UI.Init()
   f.sortBtn.label:SetPoint("RIGHT", -14, 0)
   W.AddDropdownArrow(f.sortBtn)
   f.sortBtn:SetScript("OnClick", function(self) ns.FilterPanel.OpenSortMenu(self) end)
+  f.sortBtn:SetScript("OnEnter", function(self)
+    W.Paint(self, true)
+    W.OwnTooltip(self, "ANCHOR_TOP")
+    GameTooltip:AddLine(L["Sort by"])
+    if (ns.db.sort or "expansion") == "expansion" and ns.db.favoritesFirst ~= false then
+      GameTooltip:AddLine(L["Favorite sets are listed first."], 0.96, 0.72, 0.32, true)
+    end
+    GameTooltip:Show()
+  end)
+  f.sortBtn:SetScript("OnLeave", function(self)
+    W.Paint(self, false)
+    GameTooltip:Hide()
+  end)
 
   ns.SetList.Build(f)
   ns.Detail.Build(f)
@@ -243,7 +274,11 @@ function UI.UpdateToolbar()
   local names = {
     expansion = L["Expansion"], alpha = L["Alphabetical"], progress = L["Progress"],
   }
-  f.sortBtn.label:SetText(W.GREY .. (names[mode] or "?") .. "|r")
+  -- a star in front of the mode says favorites float to the top (the sort
+  -- menu holds the toggle) — WoW fonts have no ★ glyph, hence the texture
+  local star = (mode == "expansion" and ns.db.favoritesFirst ~= false)
+    and "|TInterface\\Common\\FavoritesIcon:12:12:0:0|t" or ""
+  f.sortBtn.label:SetText(star .. W.GREY .. (names[mode] or "?") .. "|r")
 end
 
 -- ---------------------------------------------------------------------------
@@ -322,15 +357,16 @@ function UI.Show()
   if ns.Onboard then ns.Onboard.MaybeStart() end
 end
 
+--- Close the window. The bookkeeping lives in the frame's OnHide hook so that
+--- Esc (UISpecialFrames calls Hide directly) takes the exact same path.
+--- The waypoint + arrow deliberately survive closing the window: they are
+--- dismissed from the arrow's right-click menu ("Close") or by guiding elsewhere.
 function UI.Hide()
-  if ns.db then ns.db.shown = false end
-  if UI.frame then UI.frame:Hide() end
-  if ns.FilterPanel and ns.FilterPanel.Hide then ns.FilterPanel.Hide() end
-  -- the secure travel button is parented to UIParent (combat rules) and would
-  -- float alone once its dock hides with the window
-  if ns.Travel then ns.Travel.Hide() end
-  -- the waypoint + arrow deliberately survive closing the window: they are
-  -- dismissed from the arrow's right-click menu ("Close") or by guiding elsewhere
+  if UI.frame then
+    UI.frame:Hide()
+  elseif ns.db then
+    ns.db.shown = false
+  end
 end
 
 function UI.Toggle()
@@ -580,6 +616,16 @@ function UI.BuildSettings()
     return category
   end
 
+  -- bold section header inside a settings page (groups related options)
+  local function sectionHeader(cat, name)
+    if CreateSettingsListSectionHeaderInitializer and SettingsPanel and SettingsPanel.GetLayout then
+      local layout = SettingsPanel:GetLayout(cat)
+      if layout and layout.AddInitializer then
+        layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(name))
+      end
+    end
+  end
+
   -- ── Window (sub-page); the parent page is the about landing ────────────────
   local winCat = subPage(L["Window"])
 
@@ -654,6 +700,9 @@ function UI.BuildSettings()
   -- ── Notifications (sub-page) ────────────────────────────────────────────────
   local notifCat = subPage(L["Notifications"])
 
+  -- ── section: the loot toast (when does it fire) ─────────────────────────
+  sectionHeader(notifCat, L["When you loot a set piece"])
+
   boolean(notifCat, "toastEnabled", L["Show a notification when you collect a set piece"],
     function() return ns.db.toast and ns.db.toast.enabled ~= false end,
     function(v)
@@ -672,7 +721,13 @@ function UI.BuildSettings()
     function() return ns.db.toast and ns.db.toast.onlyComplete == true end,
     function(v) ns.db.toast.onlyComplete = v end)
 
-  -- what goes into the notification body
+  boolean(notifCat, "toastOtherClasses", L["Also notify for other classes' sets"],
+    function() return ns.db.toast and ns.db.toast.otherClasses == true end,
+    function(v) ns.db.toast.otherClasses = v end)
+
+  -- ── section: what goes into the notification body ───────────────────────
+  sectionHeader(notifCat, L["What the notification says"])
+
   boolean(notifCat, "toastShowPiece", L["Show the piece name"],
     function() return ns.db.toast and ns.db.toast.showPiece ~= false end,
     function(v) ns.db.toast.showPiece = v end)
@@ -689,24 +744,6 @@ function UI.BuildSettings()
     function() return ns.db.toast and ns.db.toast.showOtherSets ~= false end,
     function(v) ns.db.toast.showOtherSets = v end)
 
-  boolean(notifCat, "toastOtherClasses", L["Also notify for other classes' sets"],
-    function() return ns.db.toast and ns.db.toast.otherClasses == true end,
-    function(v) ns.db.toast.otherClasses = v end)
-
-  boolean(notifCat, "assistEnabled", L["Announce missing set pieces when entering an instance"],
-    function() return ns.db.assist and ns.db.assist.enabled ~= false end,
-    function(v)
-      ns.db.assist = ns.db.assist or {}
-      ns.db.assist.enabled = v
-    end)
-
-  boolean(notifCat, "assistToast", L["Show the announcement as a toast (chat is always used)"],
-    function() return ns.db.assist and ns.db.assist.toast ~= false end,
-    function(v)
-      ns.db.assist = ns.db.assist or {}
-      ns.db.assist.toast = v
-    end)
-
   -- "Test" button: preview the notification with the current settings
   if CreateSettingsButtonInitializer and SettingsPanel and SettingsPanel.GetLayout then
     local initializer = CreateSettingsButtonInitializer(
@@ -716,6 +753,30 @@ function UI.BuildSettings()
     local layout = SettingsPanel:GetLayout(notifCat)
     if layout and layout.AddInitializer then layout:AddInitializer(initializer) end
   end
+
+  -- ── section: the in-instance assistant ──────────────────────────────────
+  sectionHeader(notifCat, L["In-instance assistant"])
+
+  boolean(notifCat, "assistEnabled", L["Announce missing set pieces when entering an instance"],
+    function() return ns.db.assist and ns.db.assist.enabled ~= false end,
+    function(v)
+      ns.db.assist = ns.db.assist or {}
+      ns.db.assist.enabled = v
+    end)
+
+  boolean(notifCat, "assistExtras", L["Also announce out-of-journal sets"],
+    function() return ns.db.assist and ns.db.assist.announceExtras == true end,
+    function(v)
+      ns.db.assist = ns.db.assist or {}
+      ns.db.assist.announceExtras = v
+    end)
+
+  boolean(notifCat, "assistToast", L["Show the announcement as a toast (chat is always used)"],
+    function() return ns.db.assist and ns.db.assist.toast ~= false end,
+    function(v)
+      ns.db.assist = ns.db.assist or {}
+      ns.db.assist.toast = v
+    end)
 
   -- ── Profiles (canvas sub-page): settings profiles management ───────────────
   if Settings.RegisterCanvasLayoutSubcategory then
@@ -769,8 +830,27 @@ showNextToast = function()
     p.text:SetPoint("LEFT", p.iconFrame, "RIGHT", 12, 0)
     p.text:SetPoint("RIGHT", -12, 0)
     p.text:SetJustifyH("LEFT")
+    -- right-click dismisses (and surfaces the next queued toast so a loot
+    -- burst can be scanned one flick at a time); left-click opens the window
+    -- on the set the toast is about
+    p:EnableMouse(true)
+    p:SetScript("OnMouseUp", function(self, btn)
+      if self.timer then self.timer:Cancel() end
+      local data = self.data
+      self:Hide()
+      showNextToast()
+      if btn ~= "RightButton" and data and data.baseSetID then
+        local g = ns.Sets.GroupFor and ns.Sets.GroupFor(data.baseSetID)
+        if g then
+          UI.Show()
+          ns.SetList.Select(g)
+          if ns.SetList.ScrollTo then ns.SetList.ScrollTo(g.baseSetID) end
+        end
+      end
+    end)
     UI.toast = p
   end
+  p.data = data
 
   local brd = data.complete and W.C_GREEN or W.C_GOLD_BRD
   p:SetBackdropBorderColor(brd[1], brd[2], brd[3], 1)
@@ -816,12 +896,22 @@ end
 
 --- In-instance assistant toast (Modules/Assist.lua): instance name as the
 --- title, missing count as the body. Silent — it's an FYI, not loot.
-function UI.NotifyAssist(title, line, icon)
+function UI.NotifyAssist(title, line, icon, setID)
+  local baseID
+  if setID then
+    if setID < 0 then
+      baseID = setID   -- synthetic set: baseSetID == setID
+    else
+      local i = C_TransmogSets.GetSetInfo and C_TransmogSets.GetSetInfo(setID)
+      baseID = i and (i.baseSetID or i.setID) or nil
+    end
+  end
   enqueueToast({
     title = W.AMBER .. (title or "") .. "|r",
     line = line,
     icon = icon or "Interface\\Icons\\INV_Misc_Map01",
     silent = true,
+    baseSetID = baseID,
   })
 end
 
@@ -855,6 +945,7 @@ function UI.TestToast()
     icon = icon,
     line = buildToastLine(pieceName, setName, n, t, complete and 0 or 1),
     complete = complete,
+    baseSetID = ns.SetList and ns.SetList.selected or nil,
   })
 end
 
@@ -926,6 +1017,7 @@ function UI.NotifyNewPiece(sourceID)
       icon = icon,
       line = buildToastLine(pieceName or "?", setName, n, t, totalSets - 1),
       complete = complete,
+      baseSetID = baseID,   -- left-clicking the toast opens the set
     })
   end
 

@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-08-10
+
+### Added
+- **1,720 out-of-journal sets** — dungeon recolors, world sets, old PvP
+  off-sets, event gear: everything the game's sets journal doesn't list, on
+  a new "Off-journal" tab. They behave like any other set: per-piece sources,
+  farm guidance, weekly lockouts, the in-instance assistant (opt-in) and the
+  dressing-room preview all work; Suggest deliberately sticks to journal
+  sets. (Set names for these come from the community and exist in English
+  only.) New sets ship automatically every week as small X.Y.Z.N data
+  updates, with the additions listed in the release notes.
+
+### Changed
+- The expansion sort says what it does: a star on the sort button (and a
+  tooltip) shows that favorites float to the top — and the sort menu now has
+  a "Favorites first" switch to turn that off.
+- The window closes with `Esc`, like any other panel.
+- Notifications answer the mouse: right-click dismisses one and brings up the
+  next queued one (handy to scan a burst of loot), left-click opens the window
+  on the set it is about.
+- The Notifications options are split into sections (loot notification, its
+  content, in-instance assistant) instead of one long list.
+
 ## [1.2.0] - 2026-08-09
 
 ### Added
@@ -42,6 +65,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pieces classify, label and guide as drops of the instance their token falls
   in, the set list names that instance, and the in-instance assistant and
   lockouts treat them like any other boss farm.
+
+## [1.1.2] - 2026-08-09
 
 ### Changed
 - Suggest judges "farmable" per boss: an instance where every boss holding

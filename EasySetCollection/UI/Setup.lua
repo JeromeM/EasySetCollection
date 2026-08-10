@@ -210,6 +210,9 @@ local function ensureFrame()
   if frame then return end
 
   frame = CreateFrame("Frame", "EasySetCollectionSetup", UIParent, "BackdropTemplate")
+  -- Esc dismisses the wizard without marking it done (it comes back for
+  -- fresh installs; × or Finish end it for good)
+  tinsert(UISpecialFrames, "EasySetCollectionSetup")
   frame:SetSize(FRAME_W, FRAME_H)
   frame:SetPoint("CENTER", 0, 60)
   frame:SetFrameStrata("DIALOG")

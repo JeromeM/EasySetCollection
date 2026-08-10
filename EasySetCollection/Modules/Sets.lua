@@ -98,6 +98,51 @@ function Sets.EnsureCatalog()
     g.bucket, g.legacy = ns.Sources.ClassifyGroup(g)
   end
 
+  -- synthetic groups: the out-of-journal sets (Data/ExtraSets.lua), keyed by
+  -- NEGATIVE setIDs so they can never collide with Blizzard's. One variant,
+  -- no journal metadata: Pieces/Sources resolve everything from the items.
+  local X = EasySetCollectionExtraSets
+  if X then
+    local allClasses = 2 ^ (GetNumClasses and GetNumClasses() or 13) - 1
+    -- unrestricted sets narrow to the classes actually WEARING their armor
+    -- type (a warrior must not be shown/announced cloth recolors)
+    local AT_CLASSES = {
+      [1] = { 5, 8, 9 },            -- cloth: priest, mage, warlock
+      [2] = { 4, 10, 11, 12 },      -- leather: rogue, monk, druid, DH
+      [3] = { 3, 7, 13 },           -- mail: hunter, shaman, evoker
+      [4] = { 1, 2, 6 },            -- plate: warrior, paladin, DK
+    }
+    local AT_MASK = {}
+    for at, ids in pairs(AT_CLASSES) do
+      local m = 0
+      for _, id in ipairs(ids) do m = m + 2 ^ (id - 1) end
+      AT_MASK[at] = m
+    end
+    local extraFav = ns.db and ns.db.extraFav or {}
+    for wid, x in pairs(X) do
+      local setID = -wid
+      local v = { setID = setID, name = x.name, uiOrder = 0 }
+      local g = {
+        baseSetID = setID,
+        extra = true,
+        base = v,
+        variants = { v },
+        name = x.name or "",
+        nameLower = (x.name or ""):lower(),
+        expansionID = x.e or 0,
+        classMask = x.rc or (x.at and AT_MASK[x.at]) or allClasses,
+        uiOrder = 0,
+        hidden = false,
+        favorite = extraFav[wid] or false,
+        bucket = x.b or "unknown",
+        legacy = false,
+      }
+      g.classCount, g.className = classSummary(g.classMask)
+      groups[setID] = g
+      order[#order + 1] = g
+    end
+  end
+
   Sets.catalog = { groups = groups, order = order }
   return Sets.catalog
 end
@@ -111,15 +156,20 @@ end
 function Sets.RefreshFavorites()
   local cat = Sets.catalog
   if not cat then return end
+  local extraFav = ns.db and ns.db.extraFav or {}
   for _, g in ipairs(cat.order) do
-    local fav = false
-    for _, v in ipairs(g.variants) do
-      if C_TransmogSets.GetIsFavorite and C_TransmogSets.GetIsFavorite(v.setID) then
-        fav = true
-        break
+    if g.extra then
+      g.favorite = extraFav[-g.baseSetID] or false
+    else
+      local fav = false
+      for _, v in ipairs(g.variants) do
+        if C_TransmogSets.GetIsFavorite and C_TransmogSets.GetIsFavorite(v.setID) then
+          fav = true
+          break
+        end
       end
+      g.favorite = fav
     end
-    g.favorite = fav
   end
 end
 

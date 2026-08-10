@@ -34,6 +34,20 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
 - `Data/Overrides.lua` (HAND) — `EasySetCollectionOverrides.sets[baseSetID or
   setID]` (map/x/y/npc/questID nav targets, `ct`/`j` corrections, `legacy`) and
   `.instances[jid]` (`entranceMaps` for moving portals, manual entrance coords).
+- `Data/ExtraSets.lua` (GENERATED) — the OUT-OF-JOURNAL sets (Wowhead import,
+  fetch-extra-sets.mjs → 1720 sets): `[wowheadID] = { name (community English,
+  no locale variants exist), e (expansionID), at (armor type), rc (class
+  bitmask, nil = anyone), b (filter bucket, nil = classify from items),
+  items = {itemIDs} }`. The runtime shows them as SYNTHETIC catalog groups
+  keyed by NEGATIVE setIDs (-wowheadID, one variant, `g.extra = true`):
+  Pieces.ExtraFor branches Progress/For/SetIcon onto live item lookups
+  (C_TransmogCollection.GetItemInfo itemID → sourceID; appearance-collected =
+  any source of the visual known; items with no appearance are skipped), and
+  everything downstream (sources, farmSource, guide targets, lockouts,
+  Suggest, assistant, preview) flows through the same piece records. Journal
+  metadata APIs (GetSetInfo & co) return nil for negative ids — call sites
+  are guarded (Tracker shims the record, restoreSelection short-circuits,
+  the Journal button hides). Favorites for extras live in db.extraFav.
 - `Data/Vendors.lua` (GENERATED) — the baked vendor layer (Wowhead import,
   fetch-vendor-sources.mjs): `npcs[npcID] = { name (English, displayed via
   ns.L), map (uiMapID), x, y }`, `sets[setID] = { { n=npcID, s=side? } }`
@@ -122,11 +136,19 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
   (debounced 150ms) and `MakeProgressBar`.
 - `UI/UI.lua` — 760×560 two-pane shell, toolbar (search / class dropdown /
   Filters badge), footer (counts / sort), Settings pages (about canvas +
-  Window / Arrow / Notifications sub-pages, `leftAlignCheckbox` hack), and the
-  queued loot **toast** (`NotifyNewPiece`).
+  Window / Arrow / Notifications sub-pages — the last one split by
+  `sectionHeader` — plus the `leftAlignCheckbox` hack), and the queued loot
+  **toast** (`NotifyNewPiece`). The window is in `UISpecialFrames` (Esc
+  closes it), so ALL close bookkeeping lives in its `OnHide` hook —
+  `UI.Hide()` just calls `Hide()`. Toasts are mouse-enabled: right-click
+  dismisses and pulls the next queued one, left-click opens the window on
+  `data.baseSetID` (set by NotifyNewPiece / NotifyAssist / TestToast).
 - `UI/SetList.lua` — the left list: `WowScrollBoxList` + `MinimalScrollBar` +
   `CreateScrollBoxListLinearView` (extent 44), lazily-built Button rows,
-  loading/empty states. **If the ScrollBox templates misbehave in game, the
+  loading/empty states. TWO TABS above the box (`db.listTab`): Journal /
+  Off-journal (`g.extra` gate in Filters.Pass; selecting a group of the other
+  population auto-switches). Collapsible expansion sections were tried and
+  REMOVED on Jérôme's call (2026-08-10) — the list stays flat. **If the ScrollBox templates misbehave in game, the
   fallback is a manual 10-row pool — the row painting code is reusable as-is.**
 - `UI/Detail.lua` — middle pane: variants as segmented buttons, a LOCATION
   LIST under them (Sources.LocationLines: every instance best-first, then the
@@ -219,6 +241,17 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
      long full-piece price crawl (7k+ items, run overnight). Wowhead zone ids
      are AreaTable ids: hand-map them to uiMapIDs in `data/zone-uimap.json`
      (the build warns, with URLs, about unmapped ones).
+   - `fetch-extra-sets.mjs` harvests the OUT-OF-JOURNAL sets (sitemap id
+     universe → index sweeps by expansion, recolor sub-split on capped pages
+     → per-id backfill; journal dupes = ≥50% shared itemIDs, remembered).
+     AUTOMATED weekly by `.github/workflows/extra-sets.yml` (Wed 09:00 UTC,
+     FROM MAIN): additions-only weeks bump the 4th version segment
+     (X.Y.Z.W, human releases reset it), commit straight to main and
+     dispatch release.yml explicitly (GITHUB_TOKEN pushes never cascade);
+     release notes come from `data/extra-release-notes.md` (release.yml
+     falls back to it when the CHANGELOG — human-only by design — has no
+     section). Weeks where sets DISAPPEAR open a review PR instead.
+     `scripts/extra-sets-release.mjs` is the diff/bump/notes helper.
 2. `/reload` to flush `EasySetCollectionGen` to disk.
 3. Copy `WTF/Account/<acct>/SavedVariables/EasySetCollection.lua` to
    `data/sets-export.lua`.

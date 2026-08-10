@@ -211,3 +211,13 @@ L["Selected — the Guide button leads to this piece. Click to unselect."] = "Se
 L["Right-click: hide this piece in the preview."] = "Right-click: hide this piece in the preview."
 L["Right-click: show this piece in the preview."] = "Right-click: show this piece in the preview."
 L["Guides to the selected piece."] = "Guides to the selected piece."
+
+-- out-of-journal sets (Data/ExtraSets.lua)
+L["Off-journal"] = "Off-journal"
+L["Also announce out-of-journal sets"] = "Also announce out-of-journal sets"
+L["Open the options"] = "Open the options"
+L["When you loot a set piece"] = "When you loot a set piece"
+L["What the notification says"] = "What the notification says"
+L["In-instance assistant"] = "In-instance assistant"
+L["Favorites first"] = "Favorites first"
+L["Favorite sets are listed first."] = "Favorite sets are listed first."

@@ -119,6 +119,7 @@ function Assist.MissingHere(jid)
   for _, g in ipairs(cat.order) do
     repeat
       if g.hidden or g.legacy then break end
+      if g.extra and not ns.db.assist.announceExtras then break end
       if classID and bit.band(g.classMask or 0, 2 ^ (classID - 1)) == 0 then break end
       if g.requiredFaction and faction and g.requiredFaction ~= faction then break end
       -- inspect the variant matching the instance's difficulty, and judge
@@ -179,7 +180,7 @@ function Assist.Check()
     local line = (#list == 1) and L["A set piece you're missing drops here!"]
       or string.format(L["%d set pieces you're missing drop here!"], #list)
     if ns.db.assist.toast ~= false and ns.UI and ns.UI.NotifyAssist then
-      ns.UI.NotifyAssist(instName, line, ns.Pieces.SetIcon(list[1].setID))
+      ns.UI.NotifyAssist(instName, line, ns.Pieces.SetIcon(list[1].setID), list[1].setID)
     end
     ns.Print(instName .. " — " .. line)
     local facets = currentDifficultyFacets()

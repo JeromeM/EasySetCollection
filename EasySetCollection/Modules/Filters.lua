@@ -25,6 +25,8 @@ end
 --- Does one group survive the current filters?
 function Filters.Pass(g)
   local fl = ns.db.filters
+  -- list tab: journal sets and out-of-journal sets live on separate tabs
+  if (g.extra or false) ~= (ns.db.listTab == "extra") then return false end
   if g.hidden then return false end
   if g.legacy and not fl.showLegacy then return false end
 
@@ -73,9 +75,11 @@ function Filters.Sort(list)
       if ma ~= mb then return ma < mb end
       return a.name < b.name
     end)
-  else -- "expansion": favorites, then newest content first (Blizzard ordering)
+  else -- "expansion": favorites (unless db.favoritesFirst is off), then newest
+       -- content first (Blizzard ordering)
+    local favFirst = ns.db.favoritesFirst ~= false
     table.sort(list, function(a, b)
-      if (a.favorite or false) ~= (b.favorite or false) then return a.favorite end
+      if favFirst and (a.favorite or false) ~= (b.favorite or false) then return a.favorite end
       if a.expansionID ~= b.expansionID then return a.expansionID > b.expansionID end
       if a.uiOrder ~= b.uiOrder then return a.uiOrder > b.uiOrder end
       return a.name < b.name

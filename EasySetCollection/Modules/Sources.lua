@@ -34,6 +34,7 @@ local function overrideFor(setID)
   local ov = EasySetCollectionOverrides and EasySetCollectionOverrides.sets
   if not ov then return nil end
   if ov[setID] then return ov[setID] end
+  if setID and setID < 0 then return nil end   -- synthetic: no journal base set
   local base = C_TransmogSets.GetBaseSetID and C_TransmogSets.GetBaseSetID(setID)
   return base and ov[base] or nil
 end
@@ -66,6 +67,7 @@ end
 local bossAltCache = {}   -- [sourceID] = boss-drop sibling sourceID | false
 
 local function bossAltSource(sourceID)
+  if not sourceID then return nil end   -- placeholder piece (item still cold)
   local c = bossAltCache[sourceID]
   if c ~= nil then
     if c == false then return nil end

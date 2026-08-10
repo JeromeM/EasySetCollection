@@ -13,6 +13,151 @@ local Pieces = ns.Pieces
 
 local progress = {}   -- [setID] = { collected = n, total = m }, lazy
 local iconCache = {}  -- [setID] = fileID | false, lazy
+local repSource = {}  -- [baked itemID] = representative sourceID, stable once named
+
+-- --- synthetic sets (Data/ExtraSets.lua, negative setIDs = -wowheadID) --------
+
+--- The baked extra-set record behind a synthetic setID, nil for journal sets.
+function Pieces.ExtraFor(setID)
+  local X = EasySetCollectionExtraSets
+  return (setID and setID < 0 and X) and X[-setID] or nil
+end
+
+--- Appearance-level "collected": any source of the visual is known (what
+--- pa.collected means for journal pieces).
+local function visualCollected(visualID)
+  if not visualID then return false end
+  local ok, all = pcall(C_TransmogCollection.GetAllAppearanceSources, visualID)
+  if ok and type(all) == "table" then
+    for _, sid in ipairs(all) do
+      if C_TransmogCollection.PlayerHasTransmogItemModifiedAppearance
+        and C_TransmogCollection.PlayerHasTransmogItemModifiedAppearance(sid) then
+        return true
+      end
+    end
+  end
+  return false
+end
+
+--- Piece records of a synthetic set: itemID -> live appearance/source data.
+--- C_TransmogCollection.GetItemInfo answers only once the ITEM DATA is
+--- loaded (old items start cold): unresolved items get a PLACEHOLDER record
+--- (no sourceID, "…" name) and an async load request — the detail pane's
+--- ContinueOnItemLoad repaint re-resolves them a moment later. The second
+--- return says whether any placeholder remains (callers skip their caches).
+local function extraPieces(x)
+  local out = {}
+  local pending = false
+  for _, itemID in ipairs(x.items or {}) do
+    -- NOTE: no `guard and f()` idiom here — it would truncate the call to a
+    -- single return value and lose sourceID (the bug that shipped as "…")
+    local visualID, sourceID
+    if C_TransmogCollection.GetItemInfo then
+      visualID, sourceID = C_TransmogCollection.GetItemInfo(itemID)
+    end
+    local si = sourceID and C_TransmogCollection.GetSourceInfo(sourceID)
+    if si then
+      -- LOCAL-ONLY name of a source: the transmog item link (wardrobe data)
+      -- and the source's own name — deliberately NO C_Item.GetItemInfo here,
+      -- which would fire one server request per sibling per repaint (the
+      -- refresh storm that froze the game)
+      local function localName(sid, s)
+        local nm
+        if C_TransmogCollection.GetAppearanceSourceInfo then
+          local ok, _, _, _, _, _, link = pcall(C_TransmogCollection.GetAppearanceSourceInfo, sid)
+          if ok and type(link) == "string" then
+            nm = link:match("%[(.-)%]")
+            if nm == "" then nm = nil end
+          end
+        end
+        if not nm and s and s.name and s.name ~= "" then nm = s.name end
+        return nm
+      end
+
+      local vid = visualID or si.visualID
+      local useSID, useSI, iName
+
+      -- once a piece found its named representative, it NEVER changes again
+      -- (repaints during the item-cache warm-up must not make rows flicker)
+      local memo = repSource[itemID]
+      if memo then
+        local s2 = C_TransmogCollection.GetSourceInfo(memo)
+        if s2 then useSID, useSI, iName = memo, s2, localName(memo, s2) end
+      end
+
+      if not iName then
+        useSID, useSI = sourceID, si
+        iName = localName(sourceID, si)
+        if not iName and C_Item and C_Item.GetItemInfo then
+          iName = C_Item.GetItemInfo(si.itemID or itemID)   -- may request the load
+        end
+        local waitingOn
+        if not iName then
+          -- Wowhead sometimes lists an unused duplicate item the server never
+          -- serves: look for a LIVE sibling source of the same appearance —
+          -- local data only, plus ONE bounded load request for the next pass
+          local ok, all = pcall(C_TransmogCollection.GetAllAppearanceSources, vid)
+          if ok and type(all) == "table" then
+            for _, sid in ipairs(all) do
+              if sid ~= sourceID then
+                local s2 = C_TransmogCollection.GetSourceInfo(sid)
+                if s2 then
+                  local n2 = localName(sid, s2)
+                  if n2 then
+                    useSID, useSI, iName = sid, s2, n2
+                    break
+                  end
+                  waitingOn = waitingOn or s2.itemID
+                end
+              end
+            end
+            if not iName and waitingOn and C_Item and C_Item.RequestLoadItemDataByID then
+              pcall(C_Item.RequestLoadItemDataByID, waitingOn)
+            end
+          end
+        end
+        if iName then repSource[itemID] = useSID end
+        -- transitional row: wait on the SIBLING being loaded, not the dead
+        -- item (the pane's ContinueOnItemLoad repaint keys on record.itemID)
+        if not iName and waitingOn then useSI = { itemID = waitingOn } ; useSID = nil end
+      end
+
+      local iQuality
+      if iName and useSI.itemID and C_Item and C_Item.GetItemInfo then
+        local _, _, q = C_Item.GetItemInfo(useSI.itemID)
+        iQuality = q
+      end
+      out[#out + 1] = {
+        sourceID = useSID,
+        collected = visualCollected(vid),
+        sourceCollected = useSI.isCollected,
+        itemID = useSI.itemID or itemID,
+        itemModID = useSI.itemModID,
+        invType = useSI.invType,
+        sourceType = (useSI.sourceType and useSI.sourceType > 0) and useSI.sourceType or nil,
+        name = iName,
+        quality = useSI.quality or iQuality,
+      }
+    else
+      pending = true
+      if C_Item and C_Item.RequestLoadItemDataByID then
+        pcall(C_Item.RequestLoadItemDataByID, itemID)
+      end
+      out[#out + 1] = {
+        sourceID = nil,   -- placeholder: inert row until the item loads
+        collected = false,
+        sourceCollected = false,
+        itemID = itemID,
+        invType = C_Item.GetItemInventoryTypeByID
+          and C_Item.GetItemInventoryTypeByID(itemID) or nil,
+        sourceType = nil,
+        name = nil,
+        quality = nil,
+      }
+    end
+  end
+  return out, pending
+end
 
 --- X/N progress of one variant set (cached until the collection changes).
 ---@return number collected, number total
@@ -20,12 +165,26 @@ function Pieces.Progress(setID)
   local p = progress[setID]
   if not p then
     local n, t = 0, 0
-    local pas = C_TransmogSets.GetSetPrimaryAppearances and
-      C_TransmogSets.GetSetPrimaryAppearances(setID)
-    if pas then
-      for _, pa in ipairs(pas) do
+    local x = Pieces.ExtraFor(setID)
+    if x then
+      local recs, pending = extraPieces(x)
+      for _, rec in ipairs(recs) do
         t = t + 1
-        if pa.collected then n = n + 1 end
+        if rec.collected then n = n + 1 end
+      end
+      if pending then
+        -- some items still cold: report but DON'T cache, the next call
+        -- (post item-load repaint) recounts with real data
+        return n, t
+      end
+    else
+      local pas = C_TransmogSets.GetSetPrimaryAppearances and
+        C_TransmogSets.GetSetPrimaryAppearances(setID)
+      if pas then
+        for _, pa in ipairs(pas) do
+          t = t + 1
+          if pa.collected then n = n + 1 end
+        end
       end
     end
     p = { collected = n, total = t }
@@ -66,23 +225,28 @@ end
 --- resolves them asynchronously via Item:ContinueOnItemLoad.
 function Pieces.For(setID)
   local out = {}
-  local pas = C_TransmogSets.GetSetPrimaryAppearances and
-    C_TransmogSets.GetSetPrimaryAppearances(setID)
-  if not pas then return out end
-  for _, pa in ipairs(pas) do
-    local si = C_TransmogCollection.GetSourceInfo(pa.appearanceID)
-    if si then
-      out[#out + 1] = {
-        sourceID = pa.appearanceID,
-        collected = pa.collected,
-        sourceCollected = si.isCollected,   -- that exact item known (tooltip detail)
-        itemID = si.itemID,
-        itemModID = si.itemModID,
-        invType = si.invType,
-        sourceType = si.sourceType,
-        name = si.name,
-        quality = si.quality,
-      }
+  local x = Pieces.ExtraFor(setID)
+  if x then
+    out = extraPieces(x)
+  else
+    local pas = C_TransmogSets.GetSetPrimaryAppearances and
+      C_TransmogSets.GetSetPrimaryAppearances(setID)
+    if not pas then return out end
+    for _, pa in ipairs(pas) do
+      local si = C_TransmogCollection.GetSourceInfo(pa.appearanceID)
+      if si then
+        out[#out + 1] = {
+          sourceID = pa.appearanceID,
+          collected = pa.collected,
+          sourceCollected = si.isCollected,   -- that exact item known (tooltip detail)
+          itemID = si.itemID,
+          itemModID = si.itemModID,
+          invType = si.invType,
+          sourceType = si.sourceType,
+          name = si.name,
+          quality = si.quality,
+        }
+      end
     end
   end
   table.sort(out, function(a, b)
@@ -123,19 +287,34 @@ function Pieces.SetIcon(setID)
   local icon = iconCache[setID]
   if icon ~= nil then return icon or nil end
   local bestItem, bestOrder
-  local pas = C_TransmogSets.GetSetPrimaryAppearances and
-    C_TransmogSets.GetSetPrimaryAppearances(setID)
-  for _, pa in ipairs(pas or {}) do
-    local si = C_TransmogCollection.GetSourceInfo(pa.appearanceID)
-    if si and si.itemID then
-      local order = EJ_GetInvTypeSortOrder and EJ_GetInvTypeSortOrder(si.invType or 0) or 99
+  local x = Pieces.ExtraFor(setID)
+  if x then
+    -- synthetic: straight over the baked itemIDs (inventory type is synchronous)
+    for _, itemID in ipairs(x.items or {}) do
+      local invType = C_Item.GetItemInventoryTypeByID and C_Item.GetItemInventoryTypeByID(itemID)
+      local order = (EJ_GetInvTypeSortOrder and invType and EJ_GetInvTypeSortOrder(invType)) or 99
       if not bestOrder or order < bestOrder then
-        bestOrder, bestItem = order, si.itemID
+        bestOrder, bestItem = order, itemID
+      end
+    end
+  else
+    local pas = C_TransmogSets.GetSetPrimaryAppearances and
+      C_TransmogSets.GetSetPrimaryAppearances(setID)
+    for _, pa in ipairs(pas or {}) do
+      local si = C_TransmogCollection.GetSourceInfo(pa.appearanceID)
+      if si and si.itemID then
+        local order = EJ_GetInvTypeSortOrder and EJ_GetInvTypeSortOrder(si.invType or 0) or 99
+        if not bestOrder or order < bestOrder then
+          bestOrder, bestItem = order, si.itemID
+        end
       end
     end
   end
   icon = bestItem and select(5, C_Item.GetItemInfoInstant(bestItem)) or false
-  iconCache[setID] = icon
+  if icon or not x then
+    -- synthetic sets skip negative caching: cold items may resolve later
+    iconCache[setID] = icon
+  end
   return icon or nil
 end
 

@@ -320,7 +320,8 @@ function Tracker.GuidePiece(setID, piece)
   end
   if not target then return end
   local info = C_TransmogSets.GetSetInfo and C_TransmogSets.GetSetInfo(setID)
-  ns.charDB.lastGuidedBaseSetID = info and (info.baseSetID or info.setID) or nil
+  ns.charDB.lastGuidedBaseSetID = info and (info.baseSetID or info.setID)
+    or (setID and setID < 0 and setID) or nil   -- synthetic: baseSetID == setID
   if not (ns.Nav and ns.Nav.GuideTo and ns.Nav.GuideTo(target)) then
     if ns.Waypoint then ns.Waypoint.GuideToTarget(target, true) end
   end
@@ -349,6 +350,11 @@ function Tracker.Refresh()
 
   for _, setID in ipairs(list) do
     local info = C_TransmogSets.GetSetInfo and C_TransmogSets.GetSetInfo(setID)
+    if not info and setID < 0 then
+      -- synthetic set: shim the journal record from the catalog group
+      local g = ns.Sets.GroupFor(setID)
+      if g then info = { setID = setID, baseSetID = setID, name = g.name } end
+    end
     if info then
       titleInfo = titleInfo or info
       local n, t = ns.Pieces.Progress(setID)

@@ -62,6 +62,9 @@ function P.SeedDefaults(db)
   if db.shown == nil then db.shown = false end
   if db.autoGuide == nil then db.autoGuide = true end
   if db.sort == nil then db.sort = "expansion" end
+  if db.favoritesFirst == nil then db.favoritesFirst = true end
+  if db.listTab == nil then db.listTab = "journal" end   -- "journal" | "extra"
+  db.extraFav = db.extraFav or {}          -- favorites of out-of-journal sets
 
   db.arrow = db.arrow or {}
   if db.arrow.enabled == nil then db.arrow.enabled = true end
@@ -82,6 +85,7 @@ function P.SeedDefaults(db)
   db.assist = db.assist or {}
   if db.assist.enabled == nil then db.assist.enabled = true end
   if db.assist.toast == nil then db.assist.toast = true end
+  if db.assist.announceExtras == nil then db.assist.announceExtras = false end
 
   db.tracker = db.tracker or {}
   if db.tracker.hideCollected == nil then db.tracker.hideCollected = false end

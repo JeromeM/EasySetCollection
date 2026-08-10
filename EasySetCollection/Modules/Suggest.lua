@@ -102,6 +102,9 @@ function Suggest.Candidates(wantCount)
   for _, g in ipairs(cat.order) do
     repeat
       if g.hidden or g.legacy then break end
+      if g.extra then break end   -- journal sets only (Jérôme's call): the
+                                  -- out-of-journal tab is browse-and-guide,
+                                  -- Suggest never proposes it
       if classID and bit.band(g.classMask or 0, 2 ^ (classID - 1)) == 0 then break end
       if g.requiredFaction and faction and g.requiredFaction ~= faction then break end
       local n, t = ns.Pieces.GroupProgress(g)

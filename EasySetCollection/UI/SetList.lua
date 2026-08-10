@@ -220,10 +220,31 @@ function SetList.Build(f)
     return
   end
 
+  -- tabs: journal sets / out-of-journal sets (extra tab folded by default)
+  SetList.tabs = {}
+  local tabDefs = { { key = "journal", label = L["Journal"] }, { key = "extra", label = L["Off-journal"] } }
+  local tw = math.floor((UI.LIST_W - 14 - 4) / 2)
+  for i, def in ipairs(tabDefs) do
+    local b = W.MakeButton(f, "nav")
+    b:SetSize(tw, 22)
+    b:SetPoint("TOPLEFT", UI.PAD + (i - 1) * (tw + 4), -84)
+    b.label:SetText(def.label)
+    b._tabKey = def.key
+    b:SetScript("OnClick", function()
+      if ns.db.listTab ~= def.key then
+        ns.db.listTab = def.key
+        SetList.PaintTabs()
+        SetList.Refresh()
+      end
+    end)
+    SetList.tabs[i] = b
+  end
+  SetList.PaintTabs()
+
   local box = CreateFrame("Frame", nil, f, "WowScrollBoxList")
   SetList.box = box
-  box:SetPoint("TOPLEFT", UI.PAD, -84)
-  box:SetSize(UI.LIST_W - 14, UI.H - 84 - 34)
+  box:SetPoint("TOPLEFT", UI.PAD, -110)
+  box:SetSize(UI.LIST_W - 14, UI.H - 110 - 34)
 
   local bar = CreateFrame("EventFrame", nil, f, "MinimalScrollBar")
   SetList.bar = bar
@@ -237,6 +258,14 @@ function SetList.Build(f)
   ScrollUtil.InitScrollBoxListWithScrollBar(box, bar, view)
 end
 
+--- Repaint the tab segments (active = primary).
+function SetList.PaintTabs()
+  for _, b in ipairs(SetList.tabs or {}) do
+    b._kind = (ns.db.listTab == b._tabKey) and "primary" or "nav"
+    W.Paint(b, false)
+  end
+end
+
 --- Repaint the visible rows in place (selection change — no data change).
 function SetList.RepaintRows()
   if SetList.box and SetList.box.ForEachFrame then
@@ -247,8 +276,16 @@ function SetList.RepaintRows()
 end
 
 --- Select a group: remember it, hand it to the detail pane, repaint highlights.
+--- A selection from the OTHER population (Suggest, the in-instance assistant)
+--- switches the list tab so the row is actually visible.
 function SetList.Select(g)
   SetList.selected = g.baseSetID
+  local wantTab = g.extra and "extra" or "journal"
+  if ns.db.listTab ~= wantTab then
+    ns.db.listTab = wantTab
+    SetList.PaintTabs()
+    SetList.Refresh()
+  end
   ns.Detail.ShowGroup(g)
   SetList.RepaintRows()
 end
@@ -306,6 +343,7 @@ function SetList.Refresh()
     SetList.resetBtn:Hide()
     SetList.box:Show()
     SetList.bar:Show()
+
     for i, g in ipairs(list) do g._zebra = (i % 2 == 0) end
     SetList.box:SetDataProvider(CreateDataProvider(list),
       ScrollBoxConstants and ScrollBoxConstants.RetainScrollPosition or nil)
