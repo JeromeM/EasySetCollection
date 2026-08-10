@@ -81,6 +81,11 @@ jobs:
             p && /^## \[/ {exit}
             p {print}
           ' CHANGELOG.md > RELEASE_NOTES.md
+          # no CHANGELOG section (X.Y.Z.W data releases never add one): use the
+          # notes the weekly extra-sets workflow committed alongside the bump
+          if ! [ -s RELEASE_NOTES.md ] && [ -s data/extra-release-notes.md ]; then
+            cp data/extra-release-notes.md RELEASE_NOTES.md
+          fi
           [ -s RELEASE_NOTES.md ] || echo "EasySetCollection ${{ steps.meta.outputs.version }}" > RELEASE_NOTES.md
           {
             echo "body<<EOF"

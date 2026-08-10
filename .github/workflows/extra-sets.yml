@@ -1,0 +1,113 @@
+name: Extra sets refresh
+
+# Weekly Wowhead re-harvest of the out-of-journal sets (~20 throttled
+# requests), FROM MAIN — in-flight work on develop can never leak into an
+# automated release. Three outcomes:
+#   nothing changed  -> stops quietly.
+#   additions only   -> DATA RELEASE: bumps the 4th version segment
+#                       (1.2.0 -> 1.2.0.1 -> 1.2.0.2; a human X.Y.Z release
+#                       resets the counter), commits straight to main, then
+#                       dispatches release.yml explicitly (pushes made with
+#                       GITHUB_TOKEN never trigger on:push workflows) — the
+#                       new, untagged version publishes to all 4 channels
+#                       with data/extra-release-notes.md as the notes.
+#                       Finally back-merges main into develop (best effort).
+#   sets disappeared -> suspicious (Wowhead hiccup/reorg): NO release, a
+#                       review PR is opened instead.
+# CHANGELOG.md is deliberately untouched — it belongs to human releases.
+#
+# Requires: Settings -> Actions -> Workflow permissions "Read and write"
+# (+ "Allow GitHub Actions to create and approve pull requests" for the
+# review-PR path).
+
+on:
+  schedule:
+    - cron: '0 9 * * 3'   # Wednesday 09:00 UTC — after the EU maintenance
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write   # dispatch release.yml
+
+concurrency: extra-sets-refresh
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+
+      - name: Re-harvest Wowhead
+        id: crawl
+        run: |
+          git show HEAD:data/extra-sets.json > /tmp/extra-sets-old.json
+          if node scripts/fetch-extra-sets.mjs; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Wowhead crawl failed or was blocked — retrying next week"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Rebuild baked data
+        if: steps.crawl.outputs.ok == 'true'
+        run: |
+          node scripts/build-sets.mjs
+          # only the extra-sets bake may move in this workflow: the other baked
+          # files are regenerated from committed inputs and must stay identical
+          git checkout -- EasySetCollection/Data/SetSources.lua \
+                          EasySetCollection/Data/Instances.lua \
+                          EasySetCollection/Data/Vendors.lua
+
+      - name: Classify the week
+        if: steps.crawl.outputs.ok == 'true'
+        id: diff
+        run: node scripts/extra-sets-release.mjs /tmp/extra-sets-old.json
+
+      - name: Data release (additions only)
+        if: steps.diff.outputs.mode == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/extra-sets.json data/extra-release-notes.md \
+                  EasySetCollection/Data/ExtraSets.lua \
+                  EasySetCollection/EasySetCollection.toc
+          git commit -m "Data release ${{ steps.diff.outputs.version }}: +${{ steps.diff.outputs.added }} out-of-journal sets"
+          git push origin main
+          gh workflow run release.yml --ref main
+          # keep develop in step; a conflict just means a human merges later
+          git fetch origin develop
+          git checkout -B develop origin/develop
+          if git merge --no-edit main && git push origin develop; then
+            echo "develop back-merged"
+          else
+            echo "::warning::develop back-merge failed — merge main manually"
+          fi
+
+      - name: Review PR (sets disappeared)
+        if: steps.diff.outputs.mode == 'review'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B auto/extra-sets-review
+          git add data/extra-sets.json data/extra-release-notes.md \
+                  EasySetCollection/Data/ExtraSets.lua
+          git commit -m "Extra sets refresh needs review (-${{ steps.diff.outputs.removed }} sets)"
+          git push -f origin auto/extra-sets-review
+          gh pr create --base main --head auto/extra-sets-review \
+            --title "Extra sets refresh needs review (-${{ steps.diff.outputs.removed }} sets)" \
+            --body-file data/extra-release-notes.md \
+            || echo "::warning::PR creation failed — check 'Allow GitHub Actions to create PRs', branch auto/extra-sets-review is pushed"

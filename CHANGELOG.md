@@ -10,9 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **1,720 out-of-journal sets** — dungeon recolors, world sets, old PvP
   off-sets, event gear: everything the game's sets journal doesn't list, on
   a new "Off-journal" tab. They behave like any other set: per-piece sources,
-  farm guidance, weekly lockouts, the in-instance assistant, Suggest and the
-  dressing-room preview all work. (Set names for these come from the
-  community and exist in English only.)
+  farm guidance, weekly lockouts, the in-instance assistant (opt-in) and the
+  dressing-room preview all work; Suggest deliberately sticks to journal
+  sets. (Set names for these come from the community and exist in English
+  only.) New sets ship automatically every week as small X.Y.Z.N data
+  updates, with the additions listed in the release notes.
 
 ### Added
 - **Vendor sets know their vendor**: pieces sold by a NPC now name it and show

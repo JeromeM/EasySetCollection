@@ -236,6 +236,17 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
      long full-piece price crawl (7k+ items, run overnight). Wowhead zone ids
      are AreaTable ids: hand-map them to uiMapIDs in `data/zone-uimap.json`
      (the build warns, with URLs, about unmapped ones).
+   - `fetch-extra-sets.mjs` harvests the OUT-OF-JOURNAL sets (sitemap id
+     universe → index sweeps by expansion, recolor sub-split on capped pages
+     → per-id backfill; journal dupes = ≥50% shared itemIDs, remembered).
+     AUTOMATED weekly by `.github/workflows/extra-sets.yml` (Wed 09:00 UTC,
+     FROM MAIN): additions-only weeks bump the 4th version segment
+     (X.Y.Z.W, human releases reset it), commit straight to main and
+     dispatch release.yml explicitly (GITHUB_TOKEN pushes never cascade);
+     release notes come from `data/extra-release-notes.md` (release.yml
+     falls back to it when the CHANGELOG — human-only by design — has no
+     section). Weeks where sets DISAPPEAR open a review PR instead.
+     `scripts/extra-sets-release.mjs` is the diff/bump/notes helper.
 2. `/reload` to flush `EasySetCollectionGen` to disk.
 3. Copy `WTF/Account/<acct>/SavedVariables/EasySetCollection.lua` to
    `data/sets-export.lua`.
