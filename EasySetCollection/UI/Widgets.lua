@@ -219,6 +219,73 @@ function W.AddDropdownArrow(btn)
   return tex
 end
 
+--- Flat slider matching the kit: a 1px track, a draggable amber grip, a label
+--- on the left and the formatted value on the right. `onChanged` fires live
+--- while dragging; `fmt` renders the value (defaults to a percentage).
+---@param width number  total widget width (height is 34 with its label)
+function W.MakeSlider(parent, width, min, max, step, label, fmt)
+  fmt = fmt or function(v) return math.floor(v * 100 + 0.5) .. "%" end
+  local s = CreateFrame("Frame", nil, parent)
+  s:SetSize(width, 34)
+
+  s.label = s:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  s.label:SetPoint("TOPLEFT", 0, 0)
+  s.label:SetText(label)
+  s.label:SetTextColor(0.86, 0.86, 0.90)
+
+  s.value = s:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  s.value:SetPoint("TOPRIGHT", 0, 0)
+  s.value:SetTextColor(W.C_AMBER_TX[1], W.C_AMBER_TX[2], W.C_AMBER_TX[3])
+
+  local track = s:CreateTexture(nil, "ARTWORK")
+  track:SetColorTexture(W.C_PANEL_BRD[1], W.C_PANEL_BRD[2], W.C_PANEL_BRD[3], 1)
+  track:SetHeight(2)
+  track:SetPoint("BOTTOMLEFT", 0, 6)
+  track:SetPoint("BOTTOMRIGHT", 0, 6)
+
+  local fill = s:CreateTexture(nil, "OVERLAY")
+  fill:SetColorTexture(W.C_AMBER_TX[1], W.C_AMBER_TX[2], W.C_AMBER_TX[3], 1)
+  fill:SetHeight(2)
+  fill:SetPoint("BOTTOMLEFT", track, "BOTTOMLEFT", 0, 0)
+
+  -- the grip is a real Slider so dragging, clicking the track and the mouse
+  -- wheel all behave the way players expect
+  local slider = CreateFrame("Slider", nil, s)
+  slider:SetOrientation("HORIZONTAL")
+  slider:SetPoint("BOTTOMLEFT", 0, 0)
+  slider:SetPoint("BOTTOMRIGHT", 0, 0)
+  slider:SetHeight(14)
+  slider:SetMinMaxValues(min, max)
+  slider:SetValueStep(step)
+  slider:SetObeyStepOnDrag(true)
+  slider:EnableMouseWheel(true)
+
+  local grip = slider:CreateTexture(nil, "OVERLAY")
+  grip:SetColorTexture(W.C_AMBER_TX[1], W.C_AMBER_TX[2], W.C_AMBER_TX[3], 1)
+  grip:SetSize(6, 14)
+  slider:SetThumbTexture(grip)
+
+  slider:SetScript("OnValueChanged", function(self, v)
+    v = math.floor(v / step + 0.5) * step
+    s.value:SetText(fmt(v))
+    local pct = (max > min) and ((v - min) / (max - min)) or 0
+    fill:SetWidth(math.max(0.01, width * pct))
+    if s.onChanged and not s._quiet then s.onChanged(v) end
+  end)
+  slider:SetScript("OnMouseWheel", function(self, delta)
+    self:SetValue(self:GetValue() + delta * step)
+  end)
+
+  --- Set the displayed value without firing onChanged (initial paint).
+  function s:SetValueSilently(v)
+    s._quiet = true
+    slider:SetValue(v)
+    s._quiet = false
+  end
+  s.slider = slider
+  return s
+end
+
 --- Create a flat progress bar with an optional centered "n/t" text.
 --- Call bar:SetProgress(n, t, rgb) to update fill and text.
 function W.MakeProgressBar(parent, width, height)

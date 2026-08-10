@@ -180,6 +180,15 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
   it for good, `hello` = the one-time /esc chat hint printed only on a
   genuinely fresh install — `ns.firstInstall`, set when EasySetCollectionDB
   was nil at ADDON_LOADED). Entry point `Onboard.MaybeStart()` from UI.Show.
+- `UI/Options.lua` — the addon's OWN options window (720×540): a left rail of
+  category buttons + a content pane, in the flat kit. Pages are declared as
+  data in `Options.PAGES` (Window / Guidance / Notifications / Profiles /
+  About) and built from row factories (addHeader / addNote / addCheck /
+  addSlider / addButton), so a new setting is one line. `Options.Refresh()`
+  repaints the visible page from the active profile (called after every
+  toggle and on profile switches). The game's Settings panel now only holds
+  the about canvas with an "Open the options" button — every setting moved
+  here. Entry points: the window's gear, `/esc options`, Esc closes.
 - `UI/Setup.lua` — first-install setup WIZARD (installer-style window, 5
   pages: welcome → guidance → notifications → window/minimap → done) binding
   the same db fields as the Settings pages. The welcome page forks on

@@ -291,6 +291,9 @@ SlashCmdList.EASYSETCOLLECTION = function(msg)
   elseif msg == "setup" then
     if ns.Setup then ns.Setup.Show() end
 
+  elseif msg == "options" or msg == "config" then
+    if ns.Options then ns.Options.Toggle() end
+
   elseif msg == "help" then
     ns.Print(L["Commands:"])
     print("  " .. L["/esc — open/close the window"])
@@ -299,6 +302,7 @@ SlashCmdList.EASYSETCOLLECTION = function(msg)
     print("  " .. L["/esc minimap — toggle the minimap button"])
     print("  " .. L["/esc arrow — toggle the auto waypoint arrow"])
     print("  " .. L["/esc lang — toggle English addon texts"])
+    print("  " .. L["/esc options — open the options"])
     print("  " .. L["/esc setup — rerun the first-time setup"])
 
   else

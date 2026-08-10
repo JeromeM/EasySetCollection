@@ -38,5 +38,6 @@ UI\MinimapButton.lua
 UI\Onboard.lua
 UI\Setup.lua
 UI\Tooltip.lua
+UI\Options.lua
 Tools\Generator.lua
 Core\Core.lua
