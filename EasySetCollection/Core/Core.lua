@@ -88,6 +88,8 @@ f:RegisterEvent("ADDON_LOADED")
 f:RegisterEvent("PLAYER_LOGIN")
 f:RegisterEvent("PLAYER_ENTERING_WORLD")
 f:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+f:RegisterEvent("ZONE_CHANGED")          -- sub-zones (a portal room, a courtyard)
+f:RegisterEvent("ZONE_CHANGED_INDOORS")  -- stepping inside: no NEW_AREA is fired
 f:RegisterEvent("TRANSMOG_COLLECTION_UPDATED")
 f:RegisterEvent("TRANSMOG_COLLECTION_SOURCE_ADDED")
 f:RegisterEvent("TRANSMOG_COLLECTION_SOURCE_REMOVED")
@@ -125,12 +127,14 @@ f:SetScript("OnEvent", function(_, event, arg1)
       if ns.UI and ns.UI.RefreshDetail then ns.UI.RefreshDetail() end
     end)
 
-  elseif event == "ZONE_CHANGED_NEW_AREA" then
-    -- entered a new zone without a loading screen: advance the trail
+  elseif event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED"
+      or event == "ZONE_CHANGED_INDOORS" then
+    -- moved without a loading screen: advance the trail. Indoor steps (the
+    -- portal room on the way to another continent) only fire the last two.
     if ns.Nav and ns.Nav.lastTarget and ns.Nav.Available() then
       ns.Nav.GuideTo(ns.Nav.lastTarget)
     end
-    if ns.Assist then ns.Assist.Check() end
+    if event == "ZONE_CHANGED_NEW_AREA" and ns.Assist then ns.Assist.Check() end
 
   elseif event == "TRANSMOG_COLLECTION_UPDATED" then
     queueRefresh()
