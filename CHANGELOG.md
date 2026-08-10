@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.3] - 2026-08-10
+
+### Added
+- **Tier pieces name their boss instead of a vendor.** A tier piece is not
+  bought, it is exchanged for a token a raid boss drops, so "Vendor: Arodis
+  Sunblade" was true and useless. The addon now names the boss, in that
+  boss's own raid — the Justicar shoulders send you to High King Maulgar in
+  Gruul's Lair, not to Karazhan. 600 pieces over 224 sets.
+
+### Fixed
+- **Arena sets are no longer announced as raid farms.** A few legacy vendors
+  also trade old arena gear for tier tokens, which made a Gladiator set look
+  exactly like a tier set and sent you off to Prince Malchezaar for it.
+  Pieces buyable with Marks of Honor now point at the Marks vendor.
+- **Vendor waypoints land on the vendor.** The marker used to sit at the
+  average of every spot a vendor had been seen at, which for Arodis Sunblade
+  meant a patch of empty ground in Shattrath.
+- Vendor names now show up in your own language.
+
 ## [1.3.2] - 2026-08-10
 
 ### Fixed
