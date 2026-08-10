@@ -288,31 +288,6 @@ function Sources.PieceCost(piece)
   return formatCost(c.g, currencies, items)
 end
 
---- What the pieces of a set still cost, summed across every priced piece
---- (`onlyMissing` skips the ones you already collected). Returns the
---- formatted string plus how many pieces had no price at all, so the caller
---- can say the total is partial. nil when nothing is priced.
-function Sources.SetCost(setID, onlyMissing)
-  local V = EasySetCollectionVendors
-  if not (V and V.costs) then return nil end
-  local gold, currencies, items = 0, {}, {}
-  local priced, unpriced = 0, 0
-  for _, piece in ipairs(ns.Pieces.For(setID)) do
-    if not (onlyMissing and piece.collected) then
-      local c = piece.itemID and V.costs[piece.itemID]
-      if c then
-        priced = priced + 1
-        gold = gold + (c.g or 0)
-        for _, cur in ipairs(c.c or {}) do currencies[cur[1]] = (currencies[cur[1]] or 0) + cur[2] end
-        for _, it in ipairs(c.i or {}) do items[it[1]] = (items[it[1]] or 0) + it[2] end
-      else
-        unpriced = unpriced + 1
-      end
-    end
-  end
-  if priced == 0 then return nil end
-  return formatCost(gold, currencies, items), unpriced
-end
 
 function Sources.PieceSourceText(setID, piece)
   local fsid, fst = farmSource(piece)

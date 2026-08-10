@@ -11,6 +11,7 @@ local L = ns.L
 local W = ns.Widgets
 
 local PIECE_H = 30
+local MIN_PIECE_H = 24   -- rows shrink to this before any piece is dropped
 
 Detail.group = nil          -- selected catalog group
 Detail.setID = nil          -- selected variant setID
@@ -50,12 +51,6 @@ function Detail.Build(f)
   Detail.lockLine:SetWidth(DW)
   Detail.lockLine:SetJustifyH("LEFT")
   Detail.lockLine:SetWordWrap(false)
-
-  -- what the missing pieces still cost at the vendor (priced sets only)
-  Detail.costLine = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  Detail.costLine:SetWidth(DW)
-  Detail.costLine:SetJustifyH("LEFT")
-  Detail.costLine:SetWordWrap(false)
 
   -- the complete "where does this set come from" list (all instances + kinds)
   Detail.locList = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -315,7 +310,6 @@ function Detail.HideWidgets()
   Detail.sub:Hide()
   Detail.bar:Hide()
   Detail.lockLine:Hide()
-  Detail.costLine:Hide()
   Detail.locList:Hide()
   Detail.overflow:Hide()
   Detail.actionPanel:Hide()
@@ -627,22 +621,6 @@ function Detail.Refresh()
   Detail.bar:Show()
   y = y - 24
 
-  -- vendor price of what you still miss ("Still to buy: 12 × Mark of Honor")
-  Detail.costLine:Hide()
-  if not done then
-    local cost, unpriced = ns.Sources.SetCost(setID, true)
-    if cost then
-      if unpriced and unpriced > 0 then
-        cost = cost .. " " .. W.GREY .. string.format(L["(+%d without a price)"], unpriced) .. "|r"
-      end
-      Detail.costLine:ClearAllPoints()
-      Detail.costLine:SetPoint("TOPLEFT", X, y)
-      Detail.costLine:SetText(W.AMBER .. L["Still to buy"] .. ": |r" .. W.WHITE .. cost .. "|r")
-      Detail.costLine:Show()
-      y = y - 18
-    end
-  end
-
   -- weekly lockout line ("This week: Karazhan (Heroic) 9/11 · 2 d 4 h")
   Detail.lockLine:Hide()
   if ns.Lockouts then
@@ -718,18 +696,25 @@ function Detail.Refresh()
     y = y - 28
   end
 
-  -- piece rows (with a "+N more" overflow line if space runs out)
+  -- piece rows. Rows tighten (down to MIN_PIECE_H) rather than hide pieces:
+  -- a 9-piece plate set used to lose its last row to the overflow line.
   local pieces = ns.Pieces.For(setID)
   local bottomLimit = -(ns.UI.H - ns.UI.PAD - 34 - 46)   -- above the travel dock
+  local avail = y - bottomLimit
+  local rowH = PIECE_H
+  if #pieces > 0 then
+    rowH = math.max(MIN_PIECE_H, math.min(PIECE_H, math.floor(avail / #pieces) - 2))
+  end
   local shown = 0
   for i, piece in ipairs(pieces) do
-    if y - PIECE_H < bottomLimit then break end
+    if y - rowH < bottomLimit then break end
     local row = ensurePieceRow(i, f)
+    row:SetHeight(rowH)
     paintPieceRow(row, piece, setID)
     row:ClearAllPoints()
     row:SetPoint("TOPLEFT", X, y)
     row:Show()
-    y = y - PIECE_H - 2
+    y = y - rowH - 2
     shown = i
   end
   for i = shown + 1, #Detail.pieceRows do Detail.pieceRows[i]:Hide() end
