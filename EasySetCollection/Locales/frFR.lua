@@ -223,3 +223,8 @@ L["Add to favorites"] = "Ajouter aux favoris"
 L["Remove from favorites"] = "Retirer des favoris"
 L["Right-click: add to favorites"] = "Clic droit : ajouter aux favoris"
 L["Right-click: remove from favorites"] = "Clic droit : retirer des favoris"
+
+-- item tooltips (UI/Tooltip.lua)
+L["Item tooltips"] = "Infobulles d'objets"
+L["Show set membership on item tooltips"] = "Indiquer l'ensemble sur les infobulles d'objets"
+L["Include out-of-journal sets"] = "Inclure les ensembles hors journal"

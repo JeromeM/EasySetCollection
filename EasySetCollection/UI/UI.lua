@@ -651,6 +651,23 @@ function UI.BuildSettings()
       end
     end)
 
+  -- ── Item tooltips (same page: they belong to the general look) ─────────────
+  sectionHeader(winCat, L["Item tooltips"])
+
+  boolean(winCat, "tooltipEnabled", L["Show set membership on item tooltips"],
+    function() return ns.db.tooltip and ns.db.tooltip.enabled ~= false end,
+    function(v)
+      ns.db.tooltip = ns.db.tooltip or {}
+      ns.db.tooltip.enabled = v
+    end)
+
+  boolean(winCat, "tooltipExtras", L["Include out-of-journal sets"],
+    function() return ns.db.tooltip and ns.db.tooltip.extras ~= false end,
+    function(v)
+      ns.db.tooltip = ns.db.tooltip or {}
+      ns.db.tooltip.extras = v
+    end)
+
   -- ── Arrow (sub-page) ────────────────────────────────────────────────────────
   local arrowCat = subPage(L["Arrow"])
 

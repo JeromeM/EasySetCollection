@@ -48,6 +48,7 @@ local function onLogin()
   ns.UI.Init()
   ns.UI.BuildSettings()
   ns.Minimap.Init()
+  if ns.Tooltip then ns.Tooltip.Init() end
   -- brand-new install: say how to open the window, once ever
   if ns.firstInstall and not ns.gdb.onboard.hello then
     ns.gdb.onboard.hello = true
