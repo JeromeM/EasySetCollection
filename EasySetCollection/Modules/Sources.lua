@@ -64,6 +64,12 @@ end
 -- boss drop but a sibling item of the same appearance is, that sibling is the
 -- piece's FARMABLE face: display, guidance, assistant and lockouts all follow.
 
+-- forward declaration: TokenBossFor (just below) needs the Encounter Journal
+-- boss index, which is defined further down with the rest of the EJ helpers.
+-- Without this it would be a global lookup — nil at call time, and every
+-- piece resolution would fail.
+local ensureBossIndex
+
 local bossAltCache = {}   -- [sourceID] = boss-drop sibling sourceID | false
 
 local function bossAltSource(sourceID)
@@ -164,7 +170,7 @@ end
 -- instance index. EJ_GetEncounterInfoByIndex takes the instance id directly:
 -- selecting instances while iterating them (as a first attempt did) corrupts
 -- the Encounter Journal's own iteration and hangs the client.
-local function ensureBossIndex()
+ensureBossIndex = function()
   if ejBossIndex then return ejBossIndex end
   local idx = ensureEJIndex()
   if not (idx and EJ_GetEncounterInfoByIndex) then return nil end
