@@ -123,8 +123,8 @@ function Sources.TokenBossFor(piece)
   if not name then return nil end
   -- the BOSS decides the instance, not the set: the three T4 tokens drop in
   -- Karazhan, Gruul's Lair and Magtheridon's Lair respectively
-  ensureEJIndex()
-  return name, (ejBossIndex and ejBossIndex[name] or nil)
+  local idx = ensureBossIndex()
+  return name, (idx and idx[name] or nil)
 end
 
 -- --- Encounter Journal name index (runtime fallback, built once) ------------
@@ -140,7 +140,7 @@ local function ensureEJIndex()
   end
   if not (EJ_GetNumTiers and EJ_SelectTier and EJ_GetInstanceByIndex) then return nil end
 
-  ejIndex, ejIsRaid, ejBossIndex = {}, {}, {}
+  ejIndex, ejIsRaid = {}, {}
   local prevTier = EJ_GetCurrentTier and EJ_GetCurrentTier()
   for tier = 1, EJ_GetNumTiers() do
     EJ_SelectTier(tier)
@@ -151,18 +151,6 @@ local function ensureEJIndex()
         if not jid then break end
         if name and not ejIndex[name] then ejIndex[name] = jid end
         if isRaid then ejIsRaid[jid] = true end
-        -- encounter names too: a tier token tells us its BOSS, and the boss is
-        -- what says which raid to go to (T4 tokens drop across three of them)
-        if EJ_SelectInstance and EJ_GetEncounterInfoByIndex then
-          pcall(EJ_SelectInstance, jid)
-          local e = 1
-          while true do
-            local ename = EJ_GetEncounterInfoByIndex(e, jid)
-            if not ename then break end
-            if not ejBossIndex[ename] then ejBossIndex[ename] = jid end
-            e = e + 1
-          end
-        end
         i = i + 1
       end
     end
@@ -170,6 +158,29 @@ local function ensureEJIndex()
   -- EJ_SelectTier mutates shared Encounter Journal state; put it back
   if prevTier then pcall(EJ_SelectTier, prevTier) end
   return ejIndex
+end
+
+-- Encounter names -> their instance, built in a SEPARATE pass over the finished
+-- instance index. EJ_GetEncounterInfoByIndex takes the instance id directly:
+-- selecting instances while iterating them (as a first attempt did) corrupts
+-- the Encounter Journal's own iteration and hangs the client.
+local function ensureBossIndex()
+  if ejBossIndex then return ejBossIndex end
+  local idx = ensureEJIndex()
+  if not (idx and EJ_GetEncounterInfoByIndex) then return nil end
+  ejBossIndex = {}
+  local seen = {}
+  for _, jid in pairs(idx) do
+    if not seen[jid] then
+      seen[jid] = true
+      for e = 1, 40 do
+        local ok, ename = pcall(EJ_GetEncounterInfoByIndex, e, jid)
+        if not ok or not ename then break end
+        if not ejBossIndex[ename] then ejBossIndex[ename] = jid end
+      end
+    end
+  end
+  return ejBossIndex
 end
 
 --- journalInstanceID for a localized instance name (EJ name index), nil when
