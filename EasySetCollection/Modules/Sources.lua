@@ -176,9 +176,14 @@ ensureBossIndex = function()
   if not (idx and EJ_GetEncounterInfoByIndex) then return nil end
   ejBossIndex = {}
   local seen = {}
+  local prevTier = EJ_GetCurrentTier and EJ_GetCurrentTier()
   for _, jid in pairs(idx) do
     if not seen[jid] then
       seen[jid] = true
+      -- the journal only lists an instance's encounters once it is selected.
+      -- Safe here (we walk OUR table, not the journal's own iteration), and
+      -- the previous tier is restored below.
+      if EJ_SelectInstance then pcall(EJ_SelectInstance, jid) end
       for e = 1, 40 do
         local ok, ename = pcall(EJ_GetEncounterInfoByIndex, e, jid)
         if not ok or not ename then break end
@@ -186,6 +191,7 @@ ensureBossIndex = function()
       end
     end
   end
+  if prevTier and EJ_SelectTier then pcall(EJ_SelectTier, prevTier) end
   return ejBossIndex
 end
 
