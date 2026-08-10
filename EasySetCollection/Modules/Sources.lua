@@ -225,6 +225,27 @@ end
 --- vendor data: { npc, name, map, x, y } — located vendors win over name-only
 --- ones; nil when the set has none. Names are baked in English and displayed
 --- through ns.L (translatable, falls back to the key).
+-- Baked NPC names are English (Wowhead). The client knows the localized one:
+-- a synthetic creature hyperlink resolves it from its own database, without
+-- the NPC being anywhere near us. Guarded against 12.x secret values, and
+-- cached — the tooltip call is not free.
+local npcNameCache = {}
+local function localizedNpcName(npcID, fallback)
+  if not npcID then return fallback end
+  local cached = npcNameCache[npcID]
+  if cached then return cached end
+  if C_TooltipInfo and C_TooltipInfo.GetHyperlink then
+    local ok, data = pcall(C_TooltipInfo.GetHyperlink, ("unit:Creature-0-0-0-0-%d-0"):format(npcID))
+    local line = ok and data and data.lines and data.lines[1]
+    local txt = line and line.leftText
+    if type(txt) == "string" and txt ~= "" and not (issecretvalue and issecretvalue(txt)) then
+      npcNameCache[npcID] = txt
+      return txt
+    end
+  end
+  return fallback
+end
+
 function Sources.VendorFor(setID)
   local V = EasySetCollectionVendors
   local list = V and V.sets and V.sets[setID]
@@ -236,7 +257,8 @@ function Sources.VendorFor(setID)
     if side == 3 or side == mySide then
       local npc = V.npcs and V.npcs[e.n]
       if npc then
-        local cand = { npc = e.n, name = npc.name, map = npc.map, x = npc.x, y = npc.y }
+        local cand = { npc = e.n, name = localizedNpcName(e.n, npc.name),
+                       map = npc.map, x = npc.x, y = npc.y }
         if cand.map and cand.x then return cand end
         best = best or cand
       end
@@ -299,7 +321,7 @@ function Sources.PieceSourceText(setID, piece)
     local name = ov and ov.npc and L[ov.npc]
     if not name then
       local v = Sources.VendorFor(setID)
-      name = v and L[v.name]
+      name = v and v.name
     end
     return name
       and string.format(L["%s: %s"], Sources.SourceLabel(piece.sourceType), name)
@@ -405,7 +427,7 @@ function Sources.PieceSourceParts(setID, piece)
     local name = (ov and ov.npc and L[ov.npc]) or nil
     if not name then
       local v = Sources.VendorFor(setID)
-      name = v and L[v.name] or nil
+      name = v and v.name or nil
     end
     return Sources.SourceLabel(piece.sourceType), name
   end
@@ -673,7 +695,7 @@ function Sources.LocationLabel(g)
           local info = C_Map.GetMapInfo(v.map)
           label = info and info.name
         end
-        if not label then label = L[v.name] end
+        if not label then label = v.name end
       end
     end
 
@@ -777,7 +799,7 @@ function Sources.GuideTargets(setID)
   if #out == 0 then
     local v = Sources.VendorFor(setID)
     if v and v.map and v.x and v.y then
-      out[#out + 1] = { map = v.map, x = v.x, y = v.y, title = L[v.name], vendor = true }
+      out[#out + 1] = { map = v.map, x = v.x, y = v.y, title = v.name, vendor = true }
     end
   end
 
@@ -804,7 +826,7 @@ function Sources.NavForPiece(setID, piece)
     end
     local v = Sources.VendorFor(setID)
     if v and v.map and v.x and v.y then
-      return { map = v.map, x = v.x, y = v.y, title = L[v.name], vendor = true }
+      return { map = v.map, x = v.x, y = v.y, title = v.name, vendor = true }
     end
   end
   return nil
