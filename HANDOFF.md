@@ -50,13 +50,14 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
   the Journal button hides). Favorites for extras live in db.extraFav.
 - `Data/Vendors.lua` (GENERATED) — the baked vendor layer (Wowhead import,
   fetch-vendor-sources.mjs): `npcs[npcID] = { name (English, displayed via
-  ns.L), map (uiMapID), x, y }`, `sets[setID] = { { n=npcID, s=side? } }`
+  ns.L), map (uiMapID), x, y }` and `sets[setID] = { { n=npcID, s=side? } }`
   (side 1=Alliance 2=Horde, omitted=both; Sources.VendorFor picks by faction,
-  located vendors first) and `costs[itemID] = { g=copper, c={{currencyID,qty}},
-  i={{itemID,qty}} }`. Powers vendor names in source lines/labels, per-piece
-  price display (Sources.PieceCost), the LocationLabel zone fallback, and a
-  LAST-RESORT GuideTargets map target flagged `vendor=true` — Suggest skips
-  those (farm-only spirit), the Guide button uses them.
+  located vendors first). Powers vendor names in source lines/labels, the
+  LocationLabel zone fallback, and a LAST-RESORT GuideTargets map target
+  flagged `vendor=true` — Suggest skips those (farm-only spirit), the Guide
+  button uses them. PRICES were built and then removed (2026-08-10, Jérôme's
+  call): most legacy vendor sets are no longer sold, so the data was missing
+  exactly where players would look — don't rebuild that feature.
 - `Modules/Sets.lua` — the catalog: `GetAllSets()` grouped by `baseSetID`;
   precomputes name/nameLower/expansionID/classMask/classSummary/hidden/favorite
   + `bucket`/`legacy` via `Sources.ClassifyGroup`. `EnsureCatalog()` returns nil

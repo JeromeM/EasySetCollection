@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Vendor prices are gone from the piece lines: the sets people actually look
+  up are legacy ones nobody sells anymore, so the price was missing exactly
+  where it would have been useful. Vendor names and locations stay.
+- Piece rows shrink a little instead of pushing the last piece of a 9-piece
+  set behind a "+1 more" line.
+
 ### Added
 - Sets can be marked as favorites from the list: click the star badge on a row
   (it shows up faintly when you hover), or right-click the row. Journal sets

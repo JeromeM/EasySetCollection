@@ -245,49 +245,6 @@ function Sources.VendorFor(setID)
   return best
 end
 
---- Render a cost accumulator ({ g = copper, c = {[currencyID]=qty},
---- i = {[itemID]=qty} }) as "30g · 3 × Mark of Honor"; nil when empty.
---- Currency names and icons resolve live (localized); token items may
---- name-load asynchronously ("…" until the client caches them).
-local function formatCost(g, currencies, items)
-  local bits = {}
-  if g and g > 0 then
-    bits[#bits + 1] = GetMoneyString and GetMoneyString(g, true)
-      or (math.floor(g / 10000) .. "g")
-  end
-  for id, qty in pairs(currencies or {}) do
-    -- Wowhead's "currency" cost slot also carries token ITEMS (tier tokens,
-    -- Marks of Honor): when the id isn't a real currency, read it as an item
-    local ok, info = pcall(C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo
-      or function() end, id)
-    if ok and info and info.name and info.name ~= "" then
-      local icon = info.iconFileID and ("|T" .. info.iconFileID .. ":12|t ") or ""
-      bits[#bits + 1] = qty .. " × " .. icon .. info.name
-    else
-      local name = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(id)
-      local icon = C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(id)
-      bits[#bits + 1] = qty .. " × "
-        .. (icon and ("|T" .. icon .. ":12|t ") or "") .. (name or "…")
-    end
-  end
-  for id, qty in pairs(items or {}) do
-    local name = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(id)
-    bits[#bits + 1] = qty .. " × " .. (name or "…")
-  end
-  if #bits > 0 then return table.concat(bits, " · ") end
-end
-
---- Baked price of a piece's item; nil when unknown.
-function Sources.PieceCost(piece)
-  local V = EasySetCollectionVendors
-  local c = V and V.costs and piece.itemID and V.costs[piece.itemID]
-  if not c then return nil end
-  local currencies, items = {}, {}
-  for _, cur in ipairs(c.c or {}) do currencies[cur[1]] = (currencies[cur[1]] or 0) + cur[2] end
-  for _, it in ipairs(c.i or {}) do items[it[1]] = (items[it[1]] or 0) + it[2] end
-  return formatCost(c.g, currencies, items)
-end
-
 
 function Sources.PieceSourceText(setID, piece)
   local fsid, fst = farmSource(piece)
@@ -344,12 +301,9 @@ function Sources.PieceSourceText(setID, piece)
       local v = Sources.VendorFor(setID)
       name = v and L[v.name]
     end
-    local txt = name
+    return name
       and string.format(L["%s: %s"], Sources.SourceLabel(piece.sourceType), name)
       or Sources.SourceLabel(piece.sourceType)
-    local cost = Sources.PieceCost(piece)
-    if cost then txt = txt .. " — " .. cost end
-    return txt
   end
   return Sources.SourceLabel(piece.sourceType)
 end
