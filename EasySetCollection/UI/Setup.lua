@@ -213,6 +213,7 @@ local function ensureFrame()
   -- Esc dismisses the wizard without marking it done (it comes back for
   -- fresh installs; × or Finish end it for good)
   tinsert(UISpecialFrames, "EasySetCollectionSetup")
+  W.EscPriority(frame)   -- Esc dismisses the wizard alone, not the window behind
   frame:SetSize(FRAME_W, FRAME_H)
   frame:SetPoint("CENTER", 0, 60)
   frame:SetFrameStrata("DIALOG")

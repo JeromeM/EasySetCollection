@@ -109,7 +109,8 @@ local function ensureFrame()
   frame:SetScript("OnDragStart", frame.StartMoving)
   frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
   frame:SetClampedToScreen(true)
-  tinsert(UISpecialFrames, "EasySetCollectionOptions")   -- Esc closes it
+  tinsert(UISpecialFrames, "EasySetCollectionOptions")   -- Esc closes it…
+  W.EscPriority(frame)                                   -- …and only it
 
   frame.title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   frame.title:SetPoint("TOPLEFT", PAD, -16)

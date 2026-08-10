@@ -219,6 +219,27 @@ function W.AddDropdownArrow(btn)
   return tex
 end
 
+-- Esc closes the FRONTMOST of our windows, not all of them at once: the game's
+-- CloseAllWindows() hides every visible UISpecialFrames entry in a single
+-- press, so an Esc meant for the options window took the main window with it.
+-- While a secondary window (options, setup wizard) is up, the main window is
+-- pulled out of that list and put back when the last one closes.
+local escHolds = 0
+
+--- Give `frame` priority over the main window for the Esc key.
+function W.EscPriority(frame)
+  frame:HookScript("OnShow", function()
+    escHolds = escHolds + 1
+    if tDeleteItem then tDeleteItem(UISpecialFrames, "EasySetCollectionFrame") end
+  end)
+  frame:HookScript("OnHide", function()
+    escHolds = math.max(0, escHolds - 1)
+    if escHolds == 0 and tContains and not tContains(UISpecialFrames, "EasySetCollectionFrame") then
+      tinsert(UISpecialFrames, "EasySetCollectionFrame")
+    end
+  end)
+end
+
 --- Flat slider matching the kit: a 1px track, a draggable amber grip, a label
 --- on the left and the formatted value on the right. `onChanged` fires live
 --- while dragging; `fmt` renders the value (defaults to a percentage).
