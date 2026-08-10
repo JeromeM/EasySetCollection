@@ -254,7 +254,7 @@ SlashCmdList.EASYSETCOLLECTION = function(msg)
       local name = info and info.name
       if name and name:lower():find(needle, 1, true) then
         found = found + 1
-        if found <= 15 then
+        if found <= 40 then
           -- the parent chain is what tells homonyms apart (which Dalaran?
           -- which Silvermoon?), so walk up to the continent
           local chain, pid, guard = {}, info.parentMapID, 0
@@ -271,7 +271,7 @@ SlashCmdList.EASYSETCOLLECTION = function(msg)
       end
     end
     ns.Print(string.format("findmap '%s': %d result(s)%s", needle, found,
-      found > 15 and " (first 15 shown)" or ""))
+      found > 40 and " (first 40 shown)" or ""))
 
   elseif msg == "missing" then
     -- DEV: list visible sets that have no navigation target, newest expansion

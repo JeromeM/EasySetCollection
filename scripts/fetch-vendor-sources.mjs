@@ -206,20 +206,24 @@ async function phaseNpcs() {
     consecutiveFails = 0;
     const mapper = parseMapper(body);
     if (!mapper) { npcCache[npcID] = { name }; done++; continue; } // no coords (instance/cave)
-    // zone with the most sightings; centroid of all its coords. Multi-floor
-    // zones (cities, caves) key their groups by floor index instead of a
-    // plain array — flatten either shape.
-    let best = null;
+    // EVERY zone the npc is seen in, most sightings first, each with the
+    // centroid of its coords. Multi-floor zones (cities, caves) key their
+    // groups by floor index instead of a plain array — flatten either shape.
+    // Keeping them all matters: Wowhead often lists a scenario/instanced copy
+    // of a city alongside the real one, and only the build knows which zone
+    // ids translate to a uiMapID.
+    const zones = [];
     for (const [zone, groups] of Object.entries(mapper)) {
       const list = Array.isArray(groups) ? groups : Object.values(groups || {}).flat();
       const coords = list.flatMap((g) => (g && g.coords) || []);
       if (!coords.length) continue;
-      if (!best || coords.length > best.coords.length) best = { zone: Number(zone), coords };
+      const cx = coords.reduce((a, c) => a + c[0], 0) / coords.length;
+      const cy = coords.reduce((a, c) => a + c[1], 0) / coords.length;
+      zones.push({ z: Number(zone), x: Math.round(cx * 10) / 10, y: Math.round(cy * 10) / 10, n: coords.length });
     }
-    if (best) {
-      const cx = best.coords.reduce((a, c) => a + c[0], 0) / best.coords.length;
-      const cy = best.coords.reduce((a, c) => a + c[1], 0) / best.coords.length;
-      npcCache[npcID] = { name, zone: best.zone, x: Math.round(cx * 10) / 10, y: Math.round(cy * 10) / 10 };
+    zones.sort((a, b) => b.n - a.n);
+    if (zones.length) {
+      npcCache[npcID] = { name, zones };
       located++;
     } else {
       npcCache[npcID] = { name };
@@ -262,5 +266,5 @@ if (COSTS) {
 }
 
 const soldItems = Object.values(itemCache).filter((r) => r.length).length;
-const locatedNpcs = Object.values(npcCache).filter((n) => n.zone).length;
+const locatedNpcs = Object.values(npcCache).filter((n) => n.zones && n.zones.length).length;
 console.log(`done: ${soldItems} sold items cached, ${Object.keys(npcCache).length} npcs (${locatedNpcs} located).`);

@@ -260,18 +260,24 @@ if (existsSync(VEND_SRC)) {
   let located = 0;
   for (const id of usedNpcs) {
     const npc = npcCache[id] || {};
-    const map = npc.zone != null ? zoneMap[npc.zone] : null;
-    if (npc.zone != null && map == null) {
-      const u = unmappedZones.get(npc.zone) || { count: 0, sample: npc.name };
-      u.count++;
-      unmappedZones.set(npc.zone, u);
+    // an npc is often listed in several zones (most sightings first), and
+    // Wowhead happily includes scenario/instanced copies of a city: take the
+    // first zone that actually translates to a uiMapID
+    const zones = npc.zones || (npc.zone != null ? [{ z: npc.zone, x: npc.x, y: npc.y }] : []);
+    const hit = zones.find((z) => zoneMap[z.z] != null);
+    if (!hit) {
+      for (const z of zones) {
+        const u = unmappedZones.get(z.z) || { count: 0, sample: npc.name };
+        u.count++;
+        unmappedZones.set(z.z, u);
+      }
     }
-    if (map != null) located++;
+    if (hit) located++;
     vendNpcs[id] = {
       name: npc.name || '#' + id,
-      map: map ?? null,
-      x: map != null ? npc.x : null,
-      y: map != null ? npc.y : null,
+      map: hit ? zoneMap[hit.z] : null,
+      x: hit ? hit.x : null,
+      y: hit ? hit.y : null,
     };
   }
 
