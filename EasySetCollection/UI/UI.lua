@@ -406,7 +406,7 @@ function UI.BuildAboutPanel()
 
   local author = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
   author:SetPoint("TOPLEFT", version, "BOTTOMLEFT", 0, -4)
-  author:SetText(L["Author"] .. ": |cffffffffJeromeM|r")
+  author:SetText(L["Author"] .. ": |cffffffffGrommey|r")
 
   local reportLabel = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
   reportLabel:SetPoint("TOPLEFT", author, "BOTTOMLEFT", 0, -16)

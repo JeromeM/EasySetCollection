@@ -423,7 +423,7 @@ Options.PAGES = {
       info:SetJustifyH("LEFT")
       info:SetSpacing(4)
       info:SetText(L["Version"] .. ": " .. W.WHITE .. ver .. "|r\n"
-        .. L["Author"] .. ": " .. W.WHITE .. "JeromeM|r")
+        .. L["Author"] .. ": " .. W.WHITE .. "Grommey|r")
       y = y - 44
 
       local reportLabel = p:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
