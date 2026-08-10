@@ -119,13 +119,19 @@ function Sources.TokenBossFor(piece)
   local V = EasySetCollectionVendors
   local t = V and V.tokens and piece and piece.itemID and V.tokens[piece.itemID]
   if not (t and t.n and t.n[1]) then return nil end
-  return Sources.NpcName(t.n[1]), t
+  local name = Sources.NpcName(t.n[1])
+  if not name then return nil end
+  -- the BOSS decides the instance, not the set: the three T4 tokens drop in
+  -- Karazhan, Gruul's Lair and Magtheridon's Lair respectively
+  ensureEJIndex()
+  return name, (ejBossIndex and ejBossIndex[name] or nil)
 end
 
 -- --- Encounter Journal name index (runtime fallback, built once) ------------
 
-local ejIndex   -- [localized instance name] = journalInstanceID
-local ejIsRaid  -- [journalInstanceID] = true for raids
+local ejIndex     -- [localized instance name] = journalInstanceID
+local ejIsRaid    -- [journalInstanceID] = true for raids
+local ejBossIndex -- [localized encounter name] = journalInstanceID
 
 local function ensureEJIndex()
   if ejIndex then return ejIndex end
@@ -134,7 +140,7 @@ local function ensureEJIndex()
   end
   if not (EJ_GetNumTiers and EJ_SelectTier and EJ_GetInstanceByIndex) then return nil end
 
-  ejIndex, ejIsRaid = {}, {}
+  ejIndex, ejIsRaid, ejBossIndex = {}, {}, {}
   local prevTier = EJ_GetCurrentTier and EJ_GetCurrentTier()
   for tier = 1, EJ_GetNumTiers() do
     EJ_SelectTier(tier)
@@ -145,6 +151,18 @@ local function ensureEJIndex()
         if not jid then break end
         if name and not ejIndex[name] then ejIndex[name] = jid end
         if isRaid then ejIsRaid[jid] = true end
+        -- encounter names too: a tier token tells us its BOSS, and the boss is
+        -- what says which raid to go to (T4 tokens drop across three of them)
+        if EJ_SelectInstance and EJ_GetEncounterInfoByIndex then
+          pcall(EJ_SelectInstance, jid)
+          local e = 1
+          while true do
+            local ename = EJ_GetEncounterInfoByIndex(e, jid)
+            if not ename then break end
+            if not ejBossIndex[ename] then ejBossIndex[ename] = jid end
+            e = e + 1
+          end
+        end
         i = i + 1
       end
     end
@@ -207,6 +225,12 @@ end
 --- The instance a piece drops in: baked ID first, live name-match fallback.
 ---@return number? journalInstanceID, string? localized instance name
 function Sources.PieceInstance(setID, piece)
+  -- a token piece belongs to the instance of the boss dropping its token,
+  -- which is often NOT the set's dominant one (the T4 tokens are spread over
+  -- Karazhan, Gruul's Lair and Magtheridon's Lair)
+  local tokenBoss, tokenJid = Sources.TokenBossFor(piece)
+  if tokenBoss and tokenJid then return tokenJid, Sources.InstanceName(tokenJid) end
+
   local baked = EasySetCollectionSets and EasySetCollectionSets[setID]
   if baked then
     local p = baked.pieces and baked.pieces[piece.sourceID]
@@ -308,12 +332,13 @@ function Sources.PieceSourceText(setID, piece)
       end
       if txt ~= "" then return txt end
     end
-    local jid = Sources.PieceInstance(setID, piece)
-    -- token exchange: name the boss that drops the token, not the counter
-    local boss = Sources.TokenBossFor(piece)
+    -- token exchange: name the boss that drops the token, in ITS instance
+    local boss, bossJid = Sources.TokenBossFor(piece)
     if boss then
+      local jid = bossJid or Sources.PieceInstance(setID, piece)
       return jid and (boss .. " – " .. Sources.InstanceName(jid)) or boss
     end
+    local jid = Sources.PieceInstance(setID, piece)
     if jid then return Sources.InstanceName(jid) end
   end
   if piece.sourceType == ns.SRC.QUEST then

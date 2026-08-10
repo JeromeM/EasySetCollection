@@ -105,6 +105,26 @@ const instMeta = gen.instances || {};
 
 const round1 = (n) => (n == null ? null : Math.round(n * 10) / 10);
 
+// pieces exchanged for a token a boss drops (see the vendor section below):
+// needed by classify(), which runs before the vendor layer is built
+const tokenPieces = new Set();
+{
+  const VEND = join(ROOT, 'data', 'vendor-sources.json');
+  const TOK = join(ROOT, 'data', 'token-sources.json');
+  if (existsSync(VEND) && existsSync(TOK)) {
+    const vend = JSON.parse(readFileSync(VEND, 'utf8'));
+    const tok = JSON.parse(readFileSync(TOK, 'utf8'));
+    for (const [itemID, rows] of Object.entries(vend)) {
+      const cost = Array.isArray(rows) && rows[0] && rows[0].cost && rows[0].cost[0];
+      if (!Array.isArray(cost)) continue;
+      for (const pair of [...(cost[1] || []), ...(cost[2] || [])]) {
+        const info = pair && pair[0] && tok[pair[0]];
+        if (info && info.drops && info.drops.length) { tokenPieces.add(Number(itemID)); break; }
+      }
+    }
+  }
+}
+
 // classify one set from its pieces (+ the client-side pvp flag)
 function classify(rec) {
   if (rec.pvp) return 'pvp';
@@ -114,6 +134,9 @@ function classify(rec) {
     let ct;
     if (p.j != null) {
       ct = instMeta[p.j]?.raid ? 'raid' : 'dungeon';
+    } else if (p.st === 3 && tokenPieces.has(p.itemID)) {
+      // exchanged for a boss token: a raid set, not a vendor set
+      ct = 'raid';
     } else {
       ct = ST_CT[p.st];
     }
