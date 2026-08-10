@@ -590,6 +590,16 @@ function UI.BuildSettings()
     return category
   end
 
+  -- bold section header inside a settings page (groups related options)
+  local function sectionHeader(cat, name)
+    if CreateSettingsListSectionHeaderInitializer and SettingsPanel and SettingsPanel.GetLayout then
+      local layout = SettingsPanel:GetLayout(cat)
+      if layout and layout.AddInitializer then
+        layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(name))
+      end
+    end
+  end
+
   -- ── Window (sub-page); the parent page is the about landing ────────────────
   local winCat = subPage(L["Window"])
 
@@ -664,6 +674,9 @@ function UI.BuildSettings()
   -- ── Notifications (sub-page) ────────────────────────────────────────────────
   local notifCat = subPage(L["Notifications"])
 
+  -- ── section: the loot toast (when does it fire) ─────────────────────────
+  sectionHeader(notifCat, L["When you loot a set piece"])
+
   boolean(notifCat, "toastEnabled", L["Show a notification when you collect a set piece"],
     function() return ns.db.toast and ns.db.toast.enabled ~= false end,
     function(v)
@@ -682,7 +695,13 @@ function UI.BuildSettings()
     function() return ns.db.toast and ns.db.toast.onlyComplete == true end,
     function(v) ns.db.toast.onlyComplete = v end)
 
-  -- what goes into the notification body
+  boolean(notifCat, "toastOtherClasses", L["Also notify for other classes' sets"],
+    function() return ns.db.toast and ns.db.toast.otherClasses == true end,
+    function(v) ns.db.toast.otherClasses = v end)
+
+  -- ── section: what goes into the notification body ───────────────────────
+  sectionHeader(notifCat, L["What the notification says"])
+
   boolean(notifCat, "toastShowPiece", L["Show the piece name"],
     function() return ns.db.toast and ns.db.toast.showPiece ~= false end,
     function(v) ns.db.toast.showPiece = v end)
@@ -699,31 +718,6 @@ function UI.BuildSettings()
     function() return ns.db.toast and ns.db.toast.showOtherSets ~= false end,
     function(v) ns.db.toast.showOtherSets = v end)
 
-  boolean(notifCat, "toastOtherClasses", L["Also notify for other classes' sets"],
-    function() return ns.db.toast and ns.db.toast.otherClasses == true end,
-    function(v) ns.db.toast.otherClasses = v end)
-
-  boolean(notifCat, "assistEnabled", L["Announce missing set pieces when entering an instance"],
-    function() return ns.db.assist and ns.db.assist.enabled ~= false end,
-    function(v)
-      ns.db.assist = ns.db.assist or {}
-      ns.db.assist.enabled = v
-    end)
-
-  boolean(notifCat, "assistExtras", L["Also announce out-of-journal sets"],
-    function() return ns.db.assist and ns.db.assist.extras ~= false end,
-    function(v)
-      ns.db.assist = ns.db.assist or {}
-      ns.db.assist.extras = v
-    end)
-
-  boolean(notifCat, "assistToast", L["Show the announcement as a toast (chat is always used)"],
-    function() return ns.db.assist and ns.db.assist.toast ~= false end,
-    function(v)
-      ns.db.assist = ns.db.assist or {}
-      ns.db.assist.toast = v
-    end)
-
   -- "Test" button: preview the notification with the current settings
   if CreateSettingsButtonInitializer and SettingsPanel and SettingsPanel.GetLayout then
     local initializer = CreateSettingsButtonInitializer(
@@ -733,6 +727,30 @@ function UI.BuildSettings()
     local layout = SettingsPanel:GetLayout(notifCat)
     if layout and layout.AddInitializer then layout:AddInitializer(initializer) end
   end
+
+  -- ── section: the in-instance assistant ──────────────────────────────────
+  sectionHeader(notifCat, L["In-instance assistant"])
+
+  boolean(notifCat, "assistEnabled", L["Announce missing set pieces when entering an instance"],
+    function() return ns.db.assist and ns.db.assist.enabled ~= false end,
+    function(v)
+      ns.db.assist = ns.db.assist or {}
+      ns.db.assist.enabled = v
+    end)
+
+  boolean(notifCat, "assistExtras", L["Also announce out-of-journal sets"],
+    function() return ns.db.assist and ns.db.assist.announceExtras == true end,
+    function(v)
+      ns.db.assist = ns.db.assist or {}
+      ns.db.assist.announceExtras = v
+    end)
+
+  boolean(notifCat, "assistToast", L["Show the announcement as a toast (chat is always used)"],
+    function() return ns.db.assist and ns.db.assist.toast ~= false end,
+    function(v)
+      ns.db.assist = ns.db.assist or {}
+      ns.db.assist.toast = v
+    end)
 
   -- ── Profiles (canvas sub-page): settings profiles management ───────────────
   if Settings.RegisterCanvasLayoutSubcategory then
