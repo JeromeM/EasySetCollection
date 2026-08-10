@@ -13,6 +13,7 @@ local Pieces = ns.Pieces
 
 local progress = {}   -- [setID] = { collected = n, total = m }, lazy
 local iconCache = {}  -- [setID] = fileID | false, lazy
+local repSource = {}  -- [baked itemID] = representative sourceID, stable once named
 
 -- --- synthetic sets (Data/ExtraSets.lua, negative setIDs = -wowheadID) --------
 
@@ -56,9 +57,11 @@ local function extraPieces(x)
     end
     local si = sourceID and C_TransmogCollection.GetSourceInfo(sourceID)
     if si then
-      -- name of a source: the transmog item LINK (local wardrobe data,
-      -- instant), then the source's own name, then the item cache
-      local function nameOf(sid, s)
+      -- LOCAL-ONLY name of a source: the transmog item link (wardrobe data)
+      -- and the source's own name — deliberately NO C_Item.GetItemInfo here,
+      -- which would fire one server request per sibling per repaint (the
+      -- refresh storm that froze the game)
+      local function localName(sid, s)
         local nm
         if C_TransmogCollection.GetAppearanceSourceInfo then
           local ok, _, _, _, _, _, link = pcall(C_TransmogCollection.GetAppearanceSourceInfo, sid)
@@ -68,39 +71,59 @@ local function extraPieces(x)
           end
         end
         if not nm and s and s.name and s.name ~= "" then nm = s.name end
-        if not nm and s and s.itemID and C_Item and C_Item.GetItemInfo then
-          nm = C_Item.GetItemInfo(s.itemID)
-        end
         return nm
       end
 
       local vid = visualID or si.visualID
-      local useSID, useSI = sourceID, si
-      local iName = nameOf(sourceID, si)
+      local useSID, useSI, iName
+
+      -- once a piece found its named representative, it NEVER changes again
+      -- (repaints during the item-cache warm-up must not make rows flicker)
+      local memo = repSource[itemID]
+      if memo then
+        local s2 = C_TransmogCollection.GetSourceInfo(memo)
+        if s2 then useSID, useSI, iName = memo, s2, localName(memo, s2) end
+      end
+
       if not iName then
-        -- Wowhead sometimes lists an unused duplicate item the server never
-        -- serves ("Retrieving item information" forever): represent the piece
-        -- through a LIVE sibling source of the same appearance instead — that
-        -- fixes the name, the tooltip and the dressing room in one move
-        local ok, all = pcall(C_TransmogCollection.GetAllAppearanceSources, vid)
-        if ok and type(all) == "table" then
-          for _, sid in ipairs(all) do
-            if sid ~= sourceID then
-              local s2 = C_TransmogCollection.GetSourceInfo(sid)
-              local n2 = s2 and nameOf(sid, s2)
-              if n2 then
-                useSID, useSI, iName = sid, s2, n2
-                break
+        useSID, useSI = sourceID, si
+        iName = localName(sourceID, si)
+        if not iName and C_Item and C_Item.GetItemInfo then
+          iName = C_Item.GetItemInfo(si.itemID or itemID)   -- may request the load
+        end
+        local waitingOn
+        if not iName then
+          -- Wowhead sometimes lists an unused duplicate item the server never
+          -- serves: look for a LIVE sibling source of the same appearance —
+          -- local data only, plus ONE bounded load request for the next pass
+          local ok, all = pcall(C_TransmogCollection.GetAllAppearanceSources, vid)
+          if ok and type(all) == "table" then
+            for _, sid in ipairs(all) do
+              if sid ~= sourceID then
+                local s2 = C_TransmogCollection.GetSourceInfo(sid)
+                if s2 then
+                  local n2 = localName(sid, s2)
+                  if n2 then
+                    useSID, useSI, iName = sid, s2, n2
+                    break
+                  end
+                  waitingOn = waitingOn or s2.itemID
+                end
               end
+            end
+            if not iName and waitingOn and C_Item and C_Item.RequestLoadItemDataByID then
+              pcall(C_Item.RequestLoadItemDataByID, waitingOn)
             end
           end
         end
+        if iName then repSource[itemID] = useSID end
+        -- transitional row: wait on the SIBLING being loaded, not the dead
+        -- item (the pane's ContinueOnItemLoad repaint keys on record.itemID)
+        if not iName and waitingOn then useSI = { itemID = waitingOn } ; useSID = nil end
       end
-      if not iName and C_Item and C_Item.RequestLoadItemDataByID then
-        pcall(C_Item.RequestLoadItemDataByID, useSI.itemID or itemID)
-      end
+
       local iQuality
-      if useSI.itemID and C_Item and C_Item.GetItemInfo then
+      if iName and useSI.itemID and C_Item and C_Item.GetItemInfo then
         local _, _, q = C_Item.GetItemInfo(useSI.itemID)
         iQuality = q
       end
