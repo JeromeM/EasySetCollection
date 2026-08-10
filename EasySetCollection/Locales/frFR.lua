@@ -213,3 +213,4 @@ L["Guides to the selected piece."] = "Mène à la pièce sélectionnée."
 -- out-of-journal sets (Data/ExtraSets.lua)
 L["Off-journal"] = "Hors journal"
 L["Favorites"] = "Favoris"
+L["Also announce out-of-journal sets"] = "Annoncer aussi les ensembles hors journal"

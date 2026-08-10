@@ -104,6 +104,20 @@ function Sets.EnsureCatalog()
   local X = EasySetCollectionExtraSets
   if X then
     local allClasses = 2 ^ (GetNumClasses and GetNumClasses() or 13) - 1
+    -- unrestricted sets narrow to the classes actually WEARING their armor
+    -- type (a warrior must not be shown/announced cloth recolors)
+    local AT_CLASSES = {
+      [1] = { 5, 8, 9 },            -- cloth: priest, mage, warlock
+      [2] = { 4, 10, 11, 12 },      -- leather: rogue, monk, druid, DH
+      [3] = { 3, 7, 13 },           -- mail: hunter, shaman, evoker
+      [4] = { 1, 2, 6 },            -- plate: warrior, paladin, DK
+    }
+    local AT_MASK = {}
+    for at, ids in pairs(AT_CLASSES) do
+      local m = 0
+      for _, id in ipairs(ids) do m = m + 2 ^ (id - 1) end
+      AT_MASK[at] = m
+    end
     local extraFav = ns.db and ns.db.extraFav or {}
     for wid, x in pairs(X) do
       local setID = -wid
@@ -116,7 +130,7 @@ function Sets.EnsureCatalog()
         name = x.name or "",
         nameLower = (x.name or ""):lower(),
         expansionID = x.e or 0,
-        classMask = x.rc or allClasses,
+        classMask = x.rc or (x.at and AT_MASK[x.at]) or allClasses,
         uiOrder = 0,
         hidden = false,
         favorite = extraFav[wid] or false,

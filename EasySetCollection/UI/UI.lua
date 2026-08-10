@@ -700,6 +700,13 @@ function UI.BuildSettings()
       ns.db.assist.enabled = v
     end)
 
+  boolean(notifCat, "assistExtras", L["Also announce out-of-journal sets"],
+    function() return ns.db.assist and ns.db.assist.extras ~= false end,
+    function(v)
+      ns.db.assist = ns.db.assist or {}
+      ns.db.assist.extras = v
+    end)
+
   boolean(notifCat, "assistToast", L["Show the announcement as a toast (chat is always used)"],
     function() return ns.db.assist and ns.db.assist.toast ~= false end,
     function(v)

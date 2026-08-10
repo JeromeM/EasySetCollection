@@ -88,6 +88,7 @@ function P.SeedDefaults(db)
   db.assist = db.assist or {}
   if db.assist.enabled == nil then db.assist.enabled = true end
   if db.assist.toast == nil then db.assist.toast = true end
+  if db.assist.extras == nil then db.assist.extras = true end
 
   db.tracker = db.tracker or {}
   if db.tracker.hideCollected == nil then db.tracker.hideCollected = false end

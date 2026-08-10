@@ -119,6 +119,7 @@ function Assist.MissingHere(jid)
   for _, g in ipairs(cat.order) do
     repeat
       if g.hidden or g.legacy then break end
+      if g.extra and ns.db.assist.extras == false then break end
       if classID and bit.band(g.classMask or 0, 2 ^ (classID - 1)) == 0 then break end
       if g.requiredFaction and faction and g.requiredFaction ~= faction then break end
       -- inspect the variant matching the instance's difficulty, and judge
