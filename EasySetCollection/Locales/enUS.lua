@@ -221,3 +221,12 @@ L["What the notification says"] = "What the notification says"
 L["In-instance assistant"] = "In-instance assistant"
 L["Favorites first"] = "Favorites first"
 L["Favorite sets are listed first."] = "Favorite sets are listed first."
+L["Add to favorites"] = "Add to favorites"
+L["Remove from favorites"] = "Remove from favorites"
+L["Right-click: add to favorites"] = "Right-click: add to favorites"
+L["Right-click: remove from favorites"] = "Right-click: remove from favorites"
+
+-- item tooltips (UI/Tooltip.lua)
+L["Item tooltips"] = "Item tooltips"
+L["Show set membership on item tooltips"] = "Show set membership on item tooltips"
+L["Include out-of-journal sets"] = "Include out-of-journal sets"

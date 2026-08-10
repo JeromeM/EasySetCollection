@@ -8,6 +8,9 @@ name: Release
 # locally (generator stripped, data baked in) — then uploaded to CurseForge and
 # attached to a GitHub Release tagged vX.Y.Z.
 #
+# All three store uploads are plain curl calls (no third-party upload action):
+# CurseForge wants game version IDS, resolved from its own list at run time.
+#
 # Required repo config (Settings -> Secrets and variables -> Actions), all as
 # SECRETS (each platform's upload is skipped while its pair is missing):
 #   CF_API_KEY                        CurseForge API token
@@ -39,7 +42,7 @@ jobs:
       WOWI_API_TOKEN: ${{ secrets.WOWI_API_TOKEN }}
       WOWI_ADDON_ID: ${{ secrets.WOWI_ADDON_ID }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0     # need history + tags to detect an already-released version
           fetch-tags: true
@@ -87,25 +90,37 @@ jobs:
             cp data/extra-release-notes.md RELEASE_NOTES.md
           fi
           [ -s RELEASE_NOTES.md ] || echo "EasySetCollection ${{ steps.meta.outputs.version }}" > RELEASE_NOTES.md
-          {
-            echo "body<<EOF"
-            cat RELEASE_NOTES.md
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
 
       - name: Upload to CurseForge
         if: steps.meta.outputs.exists == 'false' && env.CF_API_KEY != '' && env.CF_PROJECT_ID != ''
-        uses: itsmeow/curseforge-upload@v3
-        with:
-          token: ${{ secrets.CF_API_KEY }}
-          project_id: ${{ env.CF_PROJECT_ID }}
-          game_endpoint: wow
-          file_path: ${{ env.ZIP }}
-          game_versions: ${{ steps.meta.outputs.versions }}
-          release_type: release
-          display_name: EasySetCollection ${{ steps.meta.outputs.version }}
-          changelog: ${{ steps.notes.outputs.body }}
-          changelog_type: markdown
+        run: |
+          # CurseForge takes game version IDS, not "12.0.7" strings: resolve them
+          # against its own list first, and stop early if none match (a silent
+          # empty list would be rejected downstream with a cryptic error).
+          curl -sS --fail-with-body --retry 3 --retry-delay 10 \
+            -H "X-Api-Token: $CF_API_KEY" \
+            "https://wow.curseforge.com/api/game/versions" > cf-versions.json
+          ids=$(jq -c --arg want "${{ steps.meta.outputs.versions }}" \
+            '($want | split(",")) as $names | [ .[] | select(.name as $n | $names | index($n)) | .id ]' \
+            cf-versions.json)
+          if [ "$ids" = "[]" ]; then
+            echo "::error::none of '${{ steps.meta.outputs.versions }}' matched CurseForge's game versions"
+            exit 1
+          fi
+          echo "CurseForge game version ids: $ids"
+          # metadata through a FILE, like Wago: curl -F parses inline values and
+          # would truncate the JSON on the quotes and semicolons of changelog prose
+          jq -n -c \
+            --arg name "EasySetCollection ${{ steps.meta.outputs.version }}" \
+            --rawfile changelog RELEASE_NOTES.md \
+            --argjson gameVersions "$ids" \
+            '{changelog: $changelog, changelogType: "markdown", displayName: $name,
+              gameVersions: $gameVersions, releaseType: "release"}' > cf-metadata.json
+          curl -sS --fail-with-body --retry 3 --retry-delay 10 \
+            -H "X-Api-Token: $CF_API_KEY" \
+            -F "metadata=<cf-metadata.json" \
+            -F "file=@$ZIP" \
+            "https://wow.curseforge.com/api/projects/$CF_PROJECT_ID/upload-file"
 
       - name: Upload to Wago Addons
         if: (steps.meta.outputs.exists == 'false' || github.event_name == 'workflow_dispatch') && env.WAGO_API_TOKEN != '' && env.WAGO_PROJECT_ID != ''
@@ -143,7 +158,7 @@ jobs:
 
       - name: GitHub Release (tag vX.Y.Z)
         if: steps.meta.outputs.exists == 'false'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ steps.meta.outputs.version }}
           name: EasySetCollection ${{ steps.meta.outputs.version }}

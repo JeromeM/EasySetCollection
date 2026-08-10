@@ -48,6 +48,7 @@ local function onLogin()
   ns.UI.Init()
   ns.UI.BuildSettings()
   ns.Minimap.Init()
+  if ns.Tooltip then ns.Tooltip.Init() end
   -- brand-new install: say how to open the window, once ever
   if ns.firstInstall and not ns.gdb.onboard.hello then
     ns.gdb.onboard.hello = true
@@ -242,6 +243,36 @@ SlashCmdList.EASYSETCOLLECTION = function(msg)
     local id = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
     local info = id and C_Map.GetMapInfo(id)
     ns.Print(string.format("UiMapID = |cffffff00%s|r  (%s)", tostring(id), info and info.name or "?"))
+
+  elseif msg:match("^findmap%s+(.+)$") then
+    -- DEV: find a UiMapID by name without travelling there (covenant sanctums
+    -- and the like can't be visited on a whim). Scans the client's map table.
+    local needle = msg:match("^findmap%s+(.+)$")
+    local KIND = { [1] = "world", [2] = "continent", [3] = "zone", [4] = "dungeon", [5] = "micro" }
+    local found = 0
+    for id = 1, 3000 do
+      local info = C_Map.GetMapInfo(id)
+      local name = info and info.name
+      if name and name:lower():find(needle, 1, true) then
+        found = found + 1
+        if found <= 40 then
+          -- the parent chain is what tells homonyms apart (which Dalaran?
+          -- which Silvermoon?), so walk up to the continent
+          local chain, pid, guard = {}, info.parentMapID, 0
+          while pid and pid > 0 and guard < 6 do
+            local p = C_Map.GetMapInfo(pid)
+            if not p then break end
+            chain[#chain + 1] = p.name
+            pid, guard = p.parentMapID, guard + 1
+          end
+          print(string.format("  |cffffff00%d|r  %s  (%s)  |cff888888%s|r", id, name,
+            KIND[info.mapType or 0] or ("type " .. tostring(info.mapType)),
+            table.concat(chain, " < ")))
+        end
+      end
+    end
+    ns.Print(string.format("findmap '%s': %d result(s)%s", needle, found,
+      found > 40 and " (first 40 shown)" or ""))
 
   elseif msg == "missing" then
     -- DEV: list visible sets that have no navigation target, newest expansion

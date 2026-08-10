@@ -34,9 +34,50 @@ local function tagText(g)
   return table.concat(bits, " – ")
 end
 
+--- Toggle a group's favorite flag. Journal sets go through the client's own
+--- favorites (the wardrobe shows them too, and TRANSMOG_SETS_UPDATE_FAVORITE
+--- refreshes us); out-of-journal sets have no client-side flag, so they live
+--- in `db.extraFav` keyed by their Wowhead id.
+function SetList.ToggleFavorite(g)
+  if not g then return end
+  if g.extra then
+    local wid = -g.baseSetID
+    ns.db.extraFav[wid] = (not ns.db.extraFav[wid]) or nil
+    ns.Sets.RefreshFavorites()
+    ns.UI.RefreshList()
+  elseif C_TransmogSets.SetIsFavorite then
+    if g.favorite then
+      -- the flag can sit on any variant: clear them all
+      for _, v in ipairs(g.variants) do
+        if C_TransmogSets.GetIsFavorite and C_TransmogSets.GetIsFavorite(v.setID) then
+          pcall(C_TransmogSets.SetIsFavorite, v.setID, false)
+        end
+      end
+    else
+      pcall(C_TransmogSets.SetIsFavorite, g.baseSetID, true)
+    end
+  end
+end
+
 -- ---------------------------------------------------------------------------
 -- row rendering
 -- ---------------------------------------------------------------------------
+--- The star badge: solid on favorites, a ghost while the row is hovered (so
+--- the click target announces itself), invisible otherwise.
+local function paintStar(row)
+  local g = row.entry
+  if not g then return end
+  if g.favorite then
+    row.star:SetAlpha(1)
+    row.star:SetDesaturated(false)
+  elseif row._hover then
+    row.star:SetAlpha(0.5)
+    row.star:SetDesaturated(true)
+  else
+    row.star:SetAlpha(0)
+  end
+end
+
 local function ensureRowWidgets(row)
   if row.icon then return end
 
@@ -52,14 +93,16 @@ local function ensureRowWidgets(row)
   row.icon:SetPoint("BOTTOMRIGHT", -2, 2)
   row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
+  -- the favorite star owns a column of its own between the icon and the text:
+  -- big enough to see and to click (it used to hide in the icon's corner)
   row.name = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  row.name:SetPoint("TOPLEFT", row.iconFrame, "TOPRIGHT", 10, -4)
+  row.name:SetPoint("TOPLEFT", row.iconFrame, "TOPRIGHT", 36, -4)
   row.name:SetPoint("RIGHT", row, "RIGHT", -66, 0)
   row.name:SetJustifyH("LEFT")
   row.name:SetWordWrap(false)
 
   row.tag = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-  row.tag:SetPoint("BOTTOMLEFT", row.iconFrame, "BOTTOMRIGHT", 10, 4)
+  row.tag:SetPoint("BOTTOMLEFT", row.iconFrame, "BOTTOMRIGHT", 36, 4)
   row.tag:SetPoint("RIGHT", row, "RIGHT", -66, 0)
   row.tag:SetJustifyH("LEFT")
   row.tag:SetWordWrap(false)
@@ -76,10 +119,34 @@ local function ensureRowWidgets(row)
   row.barFill:SetPoint("LEFT", row.barBG, "LEFT", 0, 0)
   row.barFill:SetSize(0.01, 3)
 
-  row.star = row:CreateTexture(nil, "OVERLAY")
+  -- favorite badge, clickable (the row's right-click does the same thing)
+  row.favBtn = CreateFrame("Button", nil, row)
+  row.favBtn:SetSize(26, 26)
+  row.favBtn:SetPoint("LEFT", row.iconFrame, "RIGHT", 4, 0)
+  row.star = row.favBtn:CreateTexture(nil, "OVERLAY")
   row.star:SetTexture("Interface\\Common\\FavoritesIcon")
-  row.star:SetSize(16, 16)
-  row.star:SetPoint("TOPLEFT", 0, 0)
+  row.star:SetSize(22, 22)
+  row.star:SetPoint("CENTER")
+  row.favBtn:SetScript("OnClick", function(self)
+    local g = self:GetParent().entry
+    SetList.ToggleFavorite(g)
+  end)
+  row.favBtn:SetScript("OnEnter", function(self)
+    local r = self:GetParent()
+    r._hover = true
+    paintStar(r)
+    local g = r.entry
+    if not g then return end
+    ns.Widgets.OwnTooltip(self, "ANCHOR_RIGHT")
+    GameTooltip:AddLine(g.favorite and L["Remove from favorites"] or L["Add to favorites"])
+    GameTooltip:Show()
+  end)
+  row.favBtn:SetScript("OnLeave", function(self)
+    local r = self:GetParent()
+    r._hover = r:IsMouseOver() or false
+    paintStar(r)
+    GameTooltip:Hide()
+  end)
 
   -- weekly-lockout indicator, left of the X/N counter, tinted like the row's
   -- progress (red when nothing is left to farm this week). Ignores the row's
@@ -91,12 +158,21 @@ local function ensureRowWidgets(row)
   row.lock:SetIgnoreParentAlpha(true)
   row.lock:Hide()
 
-  row:SetScript("OnClick", function(self)
-    if self.entry then SetList.Select(self.entry) end
+  row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+  row:SetScript("OnClick", function(self, button)
+    if not self.entry then return end
+    if button == "RightButton" then
+      SetList.ToggleFavorite(self.entry)
+      if self:IsMouseOver() then self:GetScript("OnEnter")(self) end
+    else
+      SetList.Select(self.entry)
+    end
   end)
   row:SetScript("OnEnter", function(self)
     local g = self.entry
     if not g then return end
+    self._hover = true
+    paintStar(self)
     ns.Widgets.OwnTooltip(self, "ANCHOR_RIGHT")
     GameTooltip:AddLine(g.name)
     for _, v in ipairs(g.variants) do
@@ -124,9 +200,15 @@ local function ensureRowWidgets(row)
     end
     GameTooltip:AddLine(" ")
     GameTooltip:AddLine(L["Click for details"], 0.35, 0.7, 1.0)
+    GameTooltip:AddLine(g.favorite and L["Right-click: remove from favorites"]
+      or L["Right-click: add to favorites"], 0.35, 0.7, 1.0)
     GameTooltip:Show()
   end)
-  row:SetScript("OnLeave", GameTooltip_Hide)
+  row:SetScript("OnLeave", function(self)
+    self._hover = false
+    paintStar(self)
+    GameTooltip:Hide()
+  end)
 end
 
 --- Paint one row from its group entry (also used for selection repaints).
@@ -138,7 +220,7 @@ local function paintRow(row)
     or "Interface\\Icons\\INV_Misc_QuestionMark")
   row.name:SetText(g.name)
   row.tag:SetText(W.GREY .. tagText(g) .. "|r")
-  row.star:SetShown(g.favorite or false)
+  paintStar(row)
 
 
   local n, t = ns.Pieces.GroupProgress(g)
@@ -254,7 +336,7 @@ function SetList.Build(f)
   local view = CreateScrollBoxListLinearView()
   view:SetElementExtent(ROW_H)
   view:SetElementInitializer("Button", initRow)
-  view:SetElementResetter(function(row) row.entry = nil end)
+  view:SetElementResetter(function(row) row.entry = nil; row._hover = false end)
   ScrollUtil.InitScrollBoxListWithScrollBar(box, bar, view)
 end
 

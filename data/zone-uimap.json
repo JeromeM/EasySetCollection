@@ -1,5 +1,5 @@
 {
-  "_comment": "Hand-authored: Wowhead zone id (AreaTable id, as used by npc pages' g_mapperData) -> in-game uiMapID. build-sets.mjs warns about vendors in zones missing from this table (with the Wowhead URL to identify each zone). Unmapped on purpose (no reliable uiMapID yet — run /esc mapid on the spot to fill in): 15969 revamped Silvermoon City, 6611 'The Situation in Dalaran' scenario, 12876 Seat of the Primus, 10986 Sinfall, 15781 Tazavesh.",
+  "_comment": "Hand-authored: Wowhead zone id (AreaTable id, as used by npc pages' g_mapperData) -> in-game uiMapID. build-sets.mjs warns about vendors whose zones are all missing from this table (with the Wowhead URL for each). Resolve ids in game with '/esc findmap <part of the localized name>' — it prints every matching uiMapID with its parent chain, which is what tells homonyms apart (four maps are called Silvermoon City, twelve are called Dalaran). Scenario copies of a city don't need an entry: npcs list several zones and the build takes the first mappable one.",
   "1": 27,
   "14": 1,
   "440": 71,
@@ -38,5 +38,11 @@
   "14771": 2339,
   "14795": 2214,
   "14838": 2215,
-  "15347": 2346
+  "15347": 2346,
+  "6941": 588,
+  "14529": 2200,
+  "15781": 2472,
+  "15969": 2393,
+  "10986": 1699,
+  "12876": 1698
 }

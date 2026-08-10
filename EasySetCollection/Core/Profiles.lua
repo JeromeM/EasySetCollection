@@ -82,6 +82,10 @@ function P.SeedDefaults(db)
   if db.toast.otherClasses == nil then db.toast.otherClasses = false end
   if db.preview == nil then db.preview = "full" end   -- "full" | "owned"
 
+  db.tooltip = db.tooltip or {}
+  if db.tooltip.enabled == nil then db.tooltip.enabled = true end
+  if db.tooltip.extras == nil then db.tooltip.extras = true end
+
   db.assist = db.assist or {}
   if db.assist.enabled == nil then db.assist.enabled = true end
   if db.assist.toast == nil then db.assist.toast = true end

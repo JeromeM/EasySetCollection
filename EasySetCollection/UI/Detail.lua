@@ -11,6 +11,7 @@ local L = ns.L
 local W = ns.Widgets
 
 local PIECE_H = 30
+local MIN_PIECE_H = 24   -- rows shrink to this before any piece is dropped
 
 Detail.group = nil          -- selected catalog group
 Detail.setID = nil          -- selected variant setID
@@ -695,18 +696,25 @@ function Detail.Refresh()
     y = y - 28
   end
 
-  -- piece rows (with a "+N more" overflow line if space runs out)
+  -- piece rows. Rows tighten (down to MIN_PIECE_H) rather than hide pieces:
+  -- a 9-piece plate set used to lose its last row to the overflow line.
   local pieces = ns.Pieces.For(setID)
   local bottomLimit = -(ns.UI.H - ns.UI.PAD - 34 - 46)   -- above the travel dock
+  local avail = y - bottomLimit
+  local rowH = PIECE_H
+  if #pieces > 0 then
+    rowH = math.max(MIN_PIECE_H, math.min(PIECE_H, math.floor(avail / #pieces) - 2))
+  end
   local shown = 0
   for i, piece in ipairs(pieces) do
-    if y - PIECE_H < bottomLimit then break end
+    if y - rowH < bottomLimit then break end
     local row = ensurePieceRow(i, f)
+    row:SetHeight(rowH)
     paintPieceRow(row, piece, setID)
     row:ClearAllPoints()
     row:SetPoint("TOPLEFT", X, y)
     row:Show()
-    y = y - PIECE_H - 2
+    y = y - rowH - 2
     shown = i
   end
   for i = shown + 1, #Detail.pieceRows do Detail.pieceRows[i]:Hide() end

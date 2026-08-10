@@ -245,40 +245,6 @@ function Sources.VendorFor(setID)
   return best
 end
 
---- Baked price of a piece's item ("30g · 3 × Mark of Honor"); nil when
---- unknown. Currency names and icons resolve live (localized); item costs
---- (tier tokens) may name-load asynchronously ("…" until the client caches
---- them, repainted with the rest of the pane).
-function Sources.PieceCost(piece)
-  local V = EasySetCollectionVendors
-  local c = V and V.costs and piece.itemID and V.costs[piece.itemID]
-  if not c then return nil end
-  local bits = {}
-  if c.g and c.g > 0 then
-    bits[#bits + 1] = GetMoneyString and GetMoneyString(c.g, true)
-      or (math.floor(c.g / 10000) .. "g")
-  end
-  for _, cur in ipairs(c.c or {}) do
-    -- Wowhead's "currency" cost slot also carries token ITEMS (tier tokens,
-    -- Marks of Honor): when the id isn't a real currency, read it as an item
-    local ok, info = pcall(C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo
-      or function() end, cur[1])
-    if ok and info and info.name and info.name ~= "" then
-      local icon = info.iconFileID and ("|T" .. info.iconFileID .. ":12|t ") or ""
-      bits[#bits + 1] = cur[2] .. " × " .. icon .. info.name
-    else
-      local name = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(cur[1])
-      local icon = C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(cur[1])
-      bits[#bits + 1] = cur[2] .. " × "
-        .. (icon and ("|T" .. icon .. ":12|t ") or "") .. (name or "…")
-    end
-  end
-  for _, it in ipairs(c.i or {}) do
-    local name = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(it[1])
-    bits[#bits + 1] = it[2] .. " × " .. (name or "…")
-  end
-  if #bits > 0 then return table.concat(bits, " · ") end
-end
 
 function Sources.PieceSourceText(setID, piece)
   local fsid, fst = farmSource(piece)
@@ -335,12 +301,9 @@ function Sources.PieceSourceText(setID, piece)
       local v = Sources.VendorFor(setID)
       name = v and L[v.name]
     end
-    local txt = name
+    return name
       and string.format(L["%s: %s"], Sources.SourceLabel(piece.sourceType), name)
       or Sources.SourceLabel(piece.sourceType)
-    local cost = Sources.PieceCost(piece)
-    if cost then txt = txt .. " — " .. cost end
-    return txt
   end
   return Sources.SourceLabel(piece.sourceType)
 end

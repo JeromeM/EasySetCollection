@@ -13,10 +13,9 @@
 //              in-game maps). Zone with the most sightings wins; coords are
 //              the centroid of its cluster.
 //
-// --costs : opt-in third phase — EVERY piece of every vendor-dominant set
-//           (7k+ items, hours of throttled fetching; run overnight, it
-//           resumes where it stopped). Fills the per-piece cost table that
-//           build-sets.mjs bakes for set-total price display.
+// Prices were harvested and displayed for a while, then dropped (2026-08-10):
+// most legacy vendor sets are no longer sold, so the data was absent exactly
+// where players would look for it. Only vendor identity and coordinates ship.
 //
 // Reads  : data/sets-export.lua
 // Writes : data/vendor-sources.json { itemID: [rows] } ([] = fetched, unsold)
@@ -36,7 +35,6 @@ const SRC = join(ROOT, 'data', 'sets-export.lua');
 const OUT_ITEMS = join(ROOT, 'data', 'vendor-sources.json');
 const OUT_NPCS = join(ROOT, 'data', 'npc-locations.json');
 
-const COSTS = process.argv.includes('--costs');
 const THROTTLE_MS = 1200;         // gentle: CloudFront hard-blocks bursty clients
 const MAX_CONSECUTIVE_FAILS = 10; // sustained 403s = we're blocked, stop cleanly
 const MAX_PIECES_PER_SET = 3;     // discovery fallbacks when a piece isn't sold
@@ -135,7 +133,7 @@ function trimRow(r) {
   return {
     id: r.id, name: r.name, react: r.react || null,
     zone: Array.isArray(r.location) ? r.location[0] : null,
-    cost: r.cost || null, pop: r.popularity || 0,
+    pop: r.popularity || 0,
   };
 }
 
@@ -206,20 +204,24 @@ async function phaseNpcs() {
     consecutiveFails = 0;
     const mapper = parseMapper(body);
     if (!mapper) { npcCache[npcID] = { name }; done++; continue; } // no coords (instance/cave)
-    // zone with the most sightings; centroid of all its coords. Multi-floor
-    // zones (cities, caves) key their groups by floor index instead of a
-    // plain array — flatten either shape.
-    let best = null;
+    // EVERY zone the npc is seen in, most sightings first, each with the
+    // centroid of its coords. Multi-floor zones (cities, caves) key their
+    // groups by floor index instead of a plain array — flatten either shape.
+    // Keeping them all matters: Wowhead often lists a scenario/instanced copy
+    // of a city alongside the real one, and only the build knows which zone
+    // ids translate to a uiMapID.
+    const zones = [];
     for (const [zone, groups] of Object.entries(mapper)) {
       const list = Array.isArray(groups) ? groups : Object.values(groups || {}).flat();
       const coords = list.flatMap((g) => (g && g.coords) || []);
       if (!coords.length) continue;
-      if (!best || coords.length > best.coords.length) best = { zone: Number(zone), coords };
+      const cx = coords.reduce((a, c) => a + c[0], 0) / coords.length;
+      const cy = coords.reduce((a, c) => a + c[1], 0) / coords.length;
+      zones.push({ z: Number(zone), x: Math.round(cx * 10) / 10, y: Math.round(cy * 10) / 10, n: coords.length });
     }
-    if (best) {
-      const cx = best.coords.reduce((a, c) => a + c[0], 0) / best.coords.length;
-      const cy = best.coords.reduce((a, c) => a + c[1], 0) / best.coords.length;
-      npcCache[npcID] = { name, zone: best.zone, x: Math.round(cx * 10) / 10, y: Math.round(cy * 10) / 10 };
+    zones.sort((a, b) => b.n - a.n);
+    if (zones.length) {
+      npcCache[npcID] = { name, zones };
       located++;
     } else {
       npcCache[npcID] = { name };
@@ -233,34 +235,9 @@ async function phaseNpcs() {
   flush();
 }
 
-// --- phase 3 (--costs): every piece of every vendor set ----------------------------
-async function phaseCosts() {
-  const targets = new Set();
-  for (const s of vendorSets) for (const i of s.items) if (!(i in itemCache)) targets.add(i);
-  console.log(`phase costs: ${targets.size} pieces still to fetch (of ${vendorSets.reduce((a, s) => a + s.items.length, 0)})`);
-  let done = 0;
-  for (const itemID of targets) {
-    const rows = await fetchSoldBy(itemID);
-    await sleep(THROTTLE_MS);
-    if (rows === undefined) { noteFailure(); continue; }
-    consecutiveFails = 0;
-    itemCache[itemID] = rows;
-    done++;
-    if (done % 25 === 0 || done === targets.size) {
-      flush();
-      console.log(`… ${done}/${targets.size} pieces fetched`);
-    }
-  }
-  flush();
-}
-
-if (COSTS) {
-  await phaseCosts();
-} else {
-  await phaseSets();
-  await phaseNpcs();
-}
+await phaseSets();
+await phaseNpcs();
 
 const soldItems = Object.values(itemCache).filter((r) => r.length).length;
-const locatedNpcs = Object.values(npcCache).filter((n) => n.zone).length;
+const locatedNpcs = Object.values(npcCache).filter((n) => n.zones && n.zones.length).length;
 console.log(`done: ${soldItems} sold items cached, ${Object.keys(npcCache).length} npcs (${locatedNpcs} located).`);

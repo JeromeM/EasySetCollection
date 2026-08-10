@@ -466,9 +466,14 @@ function UI.BuildProfilesPanel()
   curLabel:SetPoint("TOPLEFT", desc, "BOTTOMLEFT", 0, -22)
   curLabel:SetText(L["Current profile"])
 
-  local curBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-  curBtn:SetSize(200, 24)
+  local curBtn = W.MakeButton(f, "primary", "GameFontNormal")
+  curBtn:SetSize(220, 26)
   curBtn:SetPoint("TOPLEFT", curLabel, "BOTTOMLEFT", 0, -6)
+  W.AddDropdownArrow(curBtn)
+  curBtn.label:ClearAllPoints()
+  curBtn.label:SetPoint("LEFT", 8, 0)
+  curBtn.label:SetPoint("RIGHT", -16, 0)
+  curBtn.label:SetJustifyH("LEFT")
   curBtn:SetScript("OnClick", function(self)
     if not (MenuUtil and MenuUtil.CreateContextMenu) then return end
     MenuUtil.CreateContextMenu(self, function(_, root)
@@ -493,10 +498,10 @@ function UI.BuildProfilesPanel()
   eb:SetMaxLetters(40)
   eb:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
 
-  local createBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-  createBtn:SetSize(100, 24)
-  createBtn:SetPoint("LEFT", eb, "RIGHT", 8, 0)
-  createBtn:SetText(L["Create"])
+  local createBtn = W.MakeButton(f, "primary", "GameFontNormal")
+  createBtn:SetSize(110, 26)
+  createBtn:SetPoint("LEFT", eb, "RIGHT", 10, 0)
+  createBtn.label:SetText(L["Create"])
   local function createProfile()
     local name = (eb:GetText() or ""):gsub("^%s+", ""):gsub("%s+$", "")
     if name == "" then return end
@@ -509,10 +514,11 @@ function UI.BuildProfilesPanel()
   eb:SetScript("OnEnterPressed", createProfile)
 
   -- copy from / reset / delete
-  local copyBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-  copyBtn:SetSize(200, 24)
+  local copyBtn = W.MakeButton(f, "nav", "GameFontNormal")
+  copyBtn:SetSize(220, 26)
   copyBtn:SetPoint("TOPLEFT", eb, "BOTTOMLEFT", -6, -18)
-  copyBtn:SetText(L["Copy from"])
+  copyBtn.label:SetText(L["Copy from"])
+  W.AddDropdownArrow(copyBtn)
   copyBtn:SetScript("OnClick", function(self)
     if not (MenuUtil and MenuUtil.CreateContextMenu) then return end
     MenuUtil.CreateContextMenu(self, function(_, root)
@@ -525,16 +531,17 @@ function UI.BuildProfilesPanel()
     end)
   end)
 
-  local resetBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-  resetBtn:SetSize(200, 24)
-  resetBtn:SetPoint("LEFT", copyBtn, "RIGHT", 8, 0)
-  resetBtn:SetText(L["Reset profile"])
+  local resetBtn = W.MakeButton(f, "warn", "GameFontNormal")
+  resetBtn:SetSize(220, 26)
+  resetBtn:SetPoint("LEFT", copyBtn, "RIGHT", 10, 0)
+  resetBtn.label:SetText(L["Reset profile"])
   resetBtn:SetScript("OnClick", function() P.Reset() refresh() end)
 
-  local deleteBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-  deleteBtn:SetSize(200, 24)
+  local deleteBtn = W.MakeButton(f, "warn", "GameFontNormal")
+  deleteBtn:SetSize(220, 26)
   deleteBtn:SetPoint("TOPLEFT", copyBtn, "BOTTOMLEFT", 0, -12)
-  deleteBtn:SetText(L["Delete a profile"])
+  deleteBtn.label:SetText(L["Delete a profile"])
+  W.AddDropdownArrow(deleteBtn)
   deleteBtn:SetScript("OnClick", function(self)
     if not (MenuUtil and MenuUtil.CreateContextMenu) then return end
     MenuUtil.CreateContextMenu(self, function(_, root)
@@ -548,13 +555,16 @@ function UI.BuildProfilesPanel()
   end)
 
   refresh = function()
-    curBtn:SetText(P.Current())
+    curBtn.label:SetText(P.Current())
   end
+  refresh()
   f:SetScript("OnShow", refresh)
 
   f.OnCommit = function() end
   f.OnDefault = function() end
-  f.OnRefresh = function() end
+  -- the Settings panel calls OnRefresh when it (re)opens the canvas; OnShow
+  -- alone left the current-profile button blank on first display
+  f.OnRefresh = refresh
 
   return f
 end
@@ -649,6 +659,23 @@ function UI.BuildSettings()
         if not ns.Minimap.button and ns.Minimap.Init then ns.Minimap.Init() end
         if ns.Minimap.button then ns.Minimap.button:SetShown(v) end
       end
+    end)
+
+  -- ── Item tooltips (same page: they belong to the general look) ─────────────
+  sectionHeader(winCat, L["Item tooltips"])
+
+  boolean(winCat, "tooltipEnabled", L["Show set membership on item tooltips"],
+    function() return ns.db.tooltip and ns.db.tooltip.enabled ~= false end,
+    function(v)
+      ns.db.tooltip = ns.db.tooltip or {}
+      ns.db.tooltip.enabled = v
+    end)
+
+  boolean(winCat, "tooltipExtras", L["Include out-of-journal sets"],
+    function() return ns.db.tooltip and ns.db.tooltip.extras ~= false end,
+    function(v)
+      ns.db.tooltip = ns.db.tooltip or {}
+      ns.db.tooltip.extras = v
     end)
 
   -- ── Arrow (sub-page) ────────────────────────────────────────────────────────
