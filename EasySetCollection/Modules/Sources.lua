@@ -245,39 +245,73 @@ function Sources.VendorFor(setID)
   return best
 end
 
---- Baked price of a piece's item ("30g · 3 × Mark of Honor"); nil when
---- unknown. Currency names and icons resolve live (localized); item costs
---- (tier tokens) may name-load asynchronously ("…" until the client caches
---- them, repainted with the rest of the pane).
+--- Render a cost accumulator ({ g = copper, c = {[currencyID]=qty},
+--- i = {[itemID]=qty} }) as "30g · 3 × Mark of Honor"; nil when empty.
+--- Currency names and icons resolve live (localized); token items may
+--- name-load asynchronously ("…" until the client caches them).
+local function formatCost(g, currencies, items)
+  local bits = {}
+  if g and g > 0 then
+    bits[#bits + 1] = GetMoneyString and GetMoneyString(g, true)
+      or (math.floor(g / 10000) .. "g")
+  end
+  for id, qty in pairs(currencies or {}) do
+    -- Wowhead's "currency" cost slot also carries token ITEMS (tier tokens,
+    -- Marks of Honor): when the id isn't a real currency, read it as an item
+    local ok, info = pcall(C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo
+      or function() end, id)
+    if ok and info and info.name and info.name ~= "" then
+      local icon = info.iconFileID and ("|T" .. info.iconFileID .. ":12|t ") or ""
+      bits[#bits + 1] = qty .. " × " .. icon .. info.name
+    else
+      local name = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(id)
+      local icon = C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(id)
+      bits[#bits + 1] = qty .. " × "
+        .. (icon and ("|T" .. icon .. ":12|t ") or "") .. (name or "…")
+    end
+  end
+  for id, qty in pairs(items or {}) do
+    local name = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(id)
+    bits[#bits + 1] = qty .. " × " .. (name or "…")
+  end
+  if #bits > 0 then return table.concat(bits, " · ") end
+end
+
+--- Baked price of a piece's item; nil when unknown.
 function Sources.PieceCost(piece)
   local V = EasySetCollectionVendors
   local c = V and V.costs and piece.itemID and V.costs[piece.itemID]
   if not c then return nil end
-  local bits = {}
-  if c.g and c.g > 0 then
-    bits[#bits + 1] = GetMoneyString and GetMoneyString(c.g, true)
-      or (math.floor(c.g / 10000) .. "g")
-  end
-  for _, cur in ipairs(c.c or {}) do
-    -- Wowhead's "currency" cost slot also carries token ITEMS (tier tokens,
-    -- Marks of Honor): when the id isn't a real currency, read it as an item
-    local ok, info = pcall(C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo
-      or function() end, cur[1])
-    if ok and info and info.name and info.name ~= "" then
-      local icon = info.iconFileID and ("|T" .. info.iconFileID .. ":12|t ") or ""
-      bits[#bits + 1] = cur[2] .. " × " .. icon .. info.name
-    else
-      local name = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(cur[1])
-      local icon = C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(cur[1])
-      bits[#bits + 1] = cur[2] .. " × "
-        .. (icon and ("|T" .. icon .. ":12|t ") or "") .. (name or "…")
+  local currencies, items = {}, {}
+  for _, cur in ipairs(c.c or {}) do currencies[cur[1]] = (currencies[cur[1]] or 0) + cur[2] end
+  for _, it in ipairs(c.i or {}) do items[it[1]] = (items[it[1]] or 0) + it[2] end
+  return formatCost(c.g, currencies, items)
+end
+
+--- What the pieces of a set still cost, summed across every priced piece
+--- (`onlyMissing` skips the ones you already collected). Returns the
+--- formatted string plus how many pieces had no price at all, so the caller
+--- can say the total is partial. nil when nothing is priced.
+function Sources.SetCost(setID, onlyMissing)
+  local V = EasySetCollectionVendors
+  if not (V and V.costs) then return nil end
+  local gold, currencies, items = 0, {}, {}
+  local priced, unpriced = 0, 0
+  for _, piece in ipairs(ns.Pieces.For(setID)) do
+    if not (onlyMissing and piece.collected) then
+      local c = piece.itemID and V.costs[piece.itemID]
+      if c then
+        priced = priced + 1
+        gold = gold + (c.g or 0)
+        for _, cur in ipairs(c.c or {}) do currencies[cur[1]] = (currencies[cur[1]] or 0) + cur[2] end
+        for _, it in ipairs(c.i or {}) do items[it[1]] = (items[it[1]] or 0) + it[2] end
+      else
+        unpriced = unpriced + 1
+      end
     end
   end
-  for _, it in ipairs(c.i or {}) do
-    local name = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(it[1])
-    bits[#bits + 1] = it[2] .. " × " .. (name or "…")
-  end
-  if #bits > 0 then return table.concat(bits, " · ") end
+  if priced == 0 then return nil end
+  return formatCost(gold, currencies, items), unpriced
 end
 
 function Sources.PieceSourceText(setID, piece)

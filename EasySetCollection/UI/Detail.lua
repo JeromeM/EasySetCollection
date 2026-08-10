@@ -51,6 +51,12 @@ function Detail.Build(f)
   Detail.lockLine:SetJustifyH("LEFT")
   Detail.lockLine:SetWordWrap(false)
 
+  -- what the missing pieces still cost at the vendor (priced sets only)
+  Detail.costLine = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  Detail.costLine:SetWidth(DW)
+  Detail.costLine:SetJustifyH("LEFT")
+  Detail.costLine:SetWordWrap(false)
+
   -- the complete "where does this set come from" list (all instances + kinds)
   Detail.locList = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   Detail.locList:SetWidth(DW)
@@ -309,6 +315,7 @@ function Detail.HideWidgets()
   Detail.sub:Hide()
   Detail.bar:Hide()
   Detail.lockLine:Hide()
+  Detail.costLine:Hide()
   Detail.locList:Hide()
   Detail.overflow:Hide()
   Detail.actionPanel:Hide()
@@ -619,6 +626,22 @@ function Detail.Refresh()
   Detail.bar.text:SetText(string.format(L["%d/%d appearances"], n, t))
   Detail.bar:Show()
   y = y - 24
+
+  -- vendor price of what you still miss ("Still to buy: 12 × Mark of Honor")
+  Detail.costLine:Hide()
+  if not done then
+    local cost, unpriced = ns.Sources.SetCost(setID, true)
+    if cost then
+      if unpriced and unpriced > 0 then
+        cost = cost .. " " .. W.GREY .. string.format(L["(+%d without a price)"], unpriced) .. "|r"
+      end
+      Detail.costLine:ClearAllPoints()
+      Detail.costLine:SetPoint("TOPLEFT", X, y)
+      Detail.costLine:SetText(W.AMBER .. L["Still to buy"] .. ": |r" .. W.WHITE .. cost .. "|r")
+      Detail.costLine:Show()
+      y = y - 18
+    end
+  end
 
   -- weekly lockout line ("This week: Karazhan (Heroic) 9/11 · 2 d 4 h")
   Detail.lockLine:Hide()
