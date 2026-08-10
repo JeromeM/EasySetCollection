@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] - 2026-08-10
+
+### Fixed
+- **Guidance no longer gets stuck indoors.** Walking into a portal room (the
+  Wizard's Sanctum on the way to Outland, for instance) changes the map
+  without the game announcing a new zone, so the trail kept repeating the
+  same step and the arrow could vanish. It now advances as soon as you step
+  inside, and re-checks on its own if the game stays quiet.
+
+### Added
+- **The options moved into the addon**: their own window, with a category
+  list (Window, Guidance, Notifications, Profiles, About) instead of the
+  stacked checkboxes of the game's panel. Open it with the gear button or
+  `/esc options`; Esc closes the options first and the window after.
+
 ## [1.3.1] - 2026-08-10
 
 ### Added
