@@ -25,11 +25,12 @@ still missing, tells you where each piece comes from, and takes you there.
   unobtainable sets, and more.
 - **Notifications**: a small popup when you collect a piece, with the new
   progress of the set.
-- **Profiles**: your settings can live in named profiles, one per character if
-  you want. New users get a short setup window.
 
-Everything is read live from the game, so bosses, instances and difficulties are
-always in your language. English and French are supported.
+Bosses, instances, items and difficulties are read live from the game, so they
+always show up in your language. The addon's own text is in English and French
+for now. **If you would like it in your language, I am looking for
+translators** — say hello on GitHub:
+https://github.com/JeromeM/EasySetCollection/issues
 
 ## Getting started
 

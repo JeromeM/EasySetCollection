@@ -45,10 +45,11 @@ Pure Lua, no libraries, native waypoints and an on-screen 3D arrow.
 - `/esc setup` — rerun the first-install wizard.
 - `/esc minimap`, `/esc arrow`, `/esc help` — the usual toggles.
 
-Everything is resolved live from the game client, so names, bosses, instances
-and difficulties are always in your language (frFR fully translated). The
-off-journal sets are the exception: the game has no name for them, so they
-carry their community (English) names.
+Names, bosses, instances and difficulties are read live from the game client, so
+they always show up in your language. The addon's own text is in English and
+French for now: **if you would like it in your language, I am looking for
+translators**, open an issue and say hello. (Off-journal sets are the exception:
+the game has no name for them, so they keep their community English names.)
 
 ## Development
 
