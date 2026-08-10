@@ -224,6 +224,19 @@ function UI.Init()
   f.sortBtn.label:SetPoint("RIGHT", -14, 0)
   W.AddDropdownArrow(f.sortBtn)
   f.sortBtn:SetScript("OnClick", function(self) ns.FilterPanel.OpenSortMenu(self) end)
+  f.sortBtn:SetScript("OnEnter", function(self)
+    W.Paint(self, true)
+    W.OwnTooltip(self, "ANCHOR_TOP")
+    GameTooltip:AddLine(L["Sort by"])
+    if (ns.db.sort or "expansion") == "expansion" and ns.db.favoritesFirst ~= false then
+      GameTooltip:AddLine(L["Favorite sets are listed first."], 0.96, 0.72, 0.32, true)
+    end
+    GameTooltip:Show()
+  end)
+  f.sortBtn:SetScript("OnLeave", function(self)
+    W.Paint(self, false)
+    GameTooltip:Hide()
+  end)
 
   ns.SetList.Build(f)
   ns.Detail.Build(f)
@@ -261,7 +274,11 @@ function UI.UpdateToolbar()
   local names = {
     expansion = L["Expansion"], alpha = L["Alphabetical"], progress = L["Progress"],
   }
-  f.sortBtn.label:SetText(W.GREY .. (names[mode] or "?") .. "|r")
+  -- a star in front of the mode says favorites float to the top (the sort
+  -- menu holds the toggle) — WoW fonts have no ★ glyph, hence the texture
+  local star = (mode == "expansion" and ns.db.favoritesFirst ~= false)
+    and "|TInterface\\Common\\FavoritesIcon:12:12:0:0|t" or ""
+  f.sortBtn.label:SetText(star .. W.GREY .. (names[mode] or "?") .. "|r")
 end
 
 -- ---------------------------------------------------------------------------

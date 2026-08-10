@@ -37,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   once). A brand new install also gets a one-time chat hint about `/esc`.
 
 ### Changed
+- The expansion sort says what it does: a star on the sort button (and a
+  tooltip) shows that favorites float to the top — and the sort menu now has
+  a "Favorites first" switch to turn that off.
 - The window closes with `Esc`, like any other panel.
 - Notifications answer the mouse: right-click dismisses one and brings up the
   next queued one (handy to scan a burst of loot), left-click opens the window

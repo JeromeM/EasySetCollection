@@ -217,5 +217,14 @@ function FP.OpenSortMenu(anchor)
         function() return (ns.db.sort or "expansion") == mode end,
         function() apply(mode) end)
     end
+    -- favorites-first is a modifier of the expansion sort, not a mode of its
+    -- own: it lives here, where sorting is chosen (and where people look for it)
+    root:CreateDivider()
+    root:CreateCheckbox(L["Favorites first"],
+      function() return ns.db.favoritesFirst ~= false end,
+      function()
+        ns.db.favoritesFirst = not (ns.db.favoritesFirst ~= false)
+        onFilterChanged()
+      end)
   end)
 end

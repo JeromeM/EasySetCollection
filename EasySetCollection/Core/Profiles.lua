@@ -62,6 +62,7 @@ function P.SeedDefaults(db)
   if db.shown == nil then db.shown = false end
   if db.autoGuide == nil then db.autoGuide = true end
   if db.sort == nil then db.sort = "expansion" end
+  if db.favoritesFirst == nil then db.favoritesFirst = true end
   if db.listTab == nil then db.listTab = "journal" end   -- "journal" | "extra"
   db.extraFav = db.extraFav or {}          -- favorites of out-of-journal sets
 
