@@ -296,12 +296,35 @@ if (existsSync(VEND_SRC)) {
     }
     lines.push('  },');
   };
+  // token chain: a tier piece is exchanged for a token a boss drops. Bake
+  // pieceItemID -> the npc that drops its token, so the runtime can say
+  // "Prince Malchezaar" instead of "Vendor: Arodis Sunblade".
+  const tokens = {};
+  const TOK_SRC = join(ROOT, 'data', 'token-sources.json');
+  if (existsSync(TOK_SRC)) {
+    const tokenInfo = JSON.parse(readFileSync(TOK_SRC, 'utf8'));
+    for (const [itemID, rows] of Object.entries(vendCache)) {
+      if (!Array.isArray(rows) || !rows.length) continue;
+      const cost = rows[0].cost && rows[0].cost[0];
+      if (!Array.isArray(cost)) continue;
+      for (const pair of [...(cost[1] || []), ...(cost[2] || [])]) {
+        const info = pair && pair[0] && tokenInfo[pair[0]];
+        if (info && info.drops && info.drops.length) {
+          tokens[itemID] = { t: pair[0], n: info.drops.map((d) => d.npc) };
+          break;
+        }
+      }
+    }
+  }
+
   pushKeyed('npcs', vendNpcs);
   pushKeyed('sets', vendSets);
+  pushKeyed('tokens', tokens);
   lines.push('}', '');
   writeFileSync(OUT_VEND, lines.join('\n'));
 
-  vendReport = { sets: Object.keys(vendSets).length, npcs: usedNpcs.size, located, unmappedZones };
+  vendReport = { sets: Object.keys(vendSets).length, npcs: usedNpcs.size, located,
+    tokens: Object.keys(tokens).length, unmappedZones };
 }
 
 // --- report --------------------------------------------------------------------
@@ -372,7 +395,8 @@ if (extraReport) {
 }
 if (vendReport) {
   console.log(`vendors:   ${vendReport.sets} sets -> a selling NPC `
-    + `(${vendReport.npcs} npcs, ${vendReport.located} located) -> ${OUT_VEND}`);
+    + `(${vendReport.npcs} npcs, ${vendReport.located} located), `
+    + `${vendReport.tokens} pieces bought with a boss-dropped token -> ${OUT_VEND}`);
   if (vendReport.unmappedZones.size) {
     console.log(`WARN ${vendReport.unmappedZones.size} Wowhead zone(s) without a uiMapID — their vendors bake name-only.`);
     console.log('     Add them to data/zone-uimap.json:');

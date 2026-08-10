@@ -106,7 +106,20 @@ local function farmSource(piece)
   if alt then return alt, ns.SRC.BOSS end
   local drops = dropsFor(piece.sourceID)
   if drops and #drops > 0 then return piece.sourceID, ns.SRC.BOSS end
+  -- a tier piece is EXCHANGED for a token a boss drops: the vendor is a
+  -- counter, the farm is the boss (Sources.TokenBossFor names it)
+  if Sources.TokenBossFor(piece) then return piece.sourceID, ns.SRC.BOSS end
   return piece.sourceID, piece.sourceType
+end
+
+--- The boss whose token buys this piece: localized name, or nil when the piece
+--- isn't a token exchange. Baked in Data/Vendors.lua as npc IDs; the name is
+--- resolved live so it comes out in the player's language.
+function Sources.TokenBossFor(piece)
+  local V = EasySetCollectionVendors
+  local t = V and V.tokens and piece and piece.itemID and V.tokens[piece.itemID]
+  if not (t and t.n and t.n[1]) then return nil end
+  return Sources.NpcName(t.n[1]), t
 end
 
 -- --- Encounter Journal name index (runtime fallback, built once) ------------
@@ -230,7 +243,7 @@ end
 -- the NPC being anywhere near us. Guarded against 12.x secret values, and
 -- cached — the tooltip call is not free.
 local npcNameCache = {}
-local function localizedNpcName(npcID, fallback)
+function Sources.NpcName(npcID, fallback)
   if not npcID then return fallback end
   local cached = npcNameCache[npcID]
   if cached then return cached end
@@ -257,7 +270,7 @@ function Sources.VendorFor(setID)
     if side == 3 or side == mySide then
       local npc = V.npcs and V.npcs[e.n]
       if npc then
-        local cand = { npc = e.n, name = localizedNpcName(e.n, npc.name),
+        local cand = { npc = e.n, name = Sources.NpcName(e.n, npc.name),
                        map = npc.map, x = npc.x, y = npc.y }
         if cand.map and cand.x then return cand end
         best = best or cand
@@ -296,6 +309,11 @@ function Sources.PieceSourceText(setID, piece)
       if txt ~= "" then return txt end
     end
     local jid = Sources.PieceInstance(setID, piece)
+    -- token exchange: name the boss that drops the token, not the counter
+    local boss = Sources.TokenBossFor(piece)
+    if boss then
+      return jid and (boss .. " – " .. Sources.InstanceName(jid)) or boss
+    end
     if jid then return Sources.InstanceName(jid) end
   end
   if piece.sourceType == ns.SRC.QUEST then
@@ -409,7 +427,9 @@ function Sources.PieceSourceParts(setID, piece)
       end
     end
     local loc = (jid and Sources.InstanceName(jid)) or (d and d.instance)
-    if loc then return loc, d and d.encounter or nil end
+    local boss = (not d) and Sources.TokenBossFor(piece) or nil
+    if loc then return loc, (d and d.encounter) or boss end
+    if boss then return Sources.SourceLabel(ns.SRC.BOSS), boss end
     return Sources.SourceLabel(piece.sourceType), nil
   elseif piece.sourceType == ns.SRC.QUEST then
     local ov = overrideFor(setID)
