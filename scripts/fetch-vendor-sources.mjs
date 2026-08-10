@@ -190,6 +190,39 @@ function parseMapper(body) {
   try { return JSON.parse(body.slice(at + 'g_mapperData = '.length, end)); } catch { return null; }
 }
 
+// Where the npc REALLY stands: the centre of its densest cluster of sightings,
+// never the average of them all. Wowhead usually lists a tight group plus a
+// stray point or two (a patrol, an old spawn, a phased copy), and averaging
+// those lands the waypoint in empty ground — Arodis Sunblade's four Aldor Rise
+// points plus one outlier used to average to the middle of Shattrath.
+const CLUSTER_RADIUS = 6;   // in 0-100 map units
+const EDGE = 1.5;           // points pinned to the map border are artefacts
+
+function densestSpot(all) {
+  // drop border artefacts first (Fedryen Swiftspear is listed at x=1 as well
+  // as at his real spot), but never drop everything
+  const inner = all.filter((c) => c[0] > EDGE && c[0] < 100 - EDGE && c[1] > EDGE && c[1] < 100 - EDGE);
+  const coords = inner.length ? inner : all;
+  // ties (every point isolated) go to the one closest to the middle of the
+  // pack rather than to whichever came first
+  const mx = coords.reduce((a, c) => a + c[0], 0) / coords.length;
+  const my = coords.reduce((a, c) => a + c[1], 0) / coords.length;
+  let best, bestCount = -1, bestDist = Infinity;
+  for (const centre of coords) {
+    const near = coords.filter((c) =>
+      Math.abs(c[0] - centre[0]) <= CLUSTER_RADIUS && Math.abs(c[1] - centre[1]) <= CLUSTER_RADIUS);
+    const dist = Math.hypot(centre[0] - mx, centre[1] - my);
+    if (near.length > bestCount || (near.length === bestCount && dist < bestDist)) {
+      bestCount = near.length;
+      bestDist = dist;
+      best = near;
+    }
+  }
+  const x = best.reduce((a, c) => a + c[0], 0) / best.length;
+  const y = best.reduce((a, c) => a + c[1], 0) / best.length;
+  return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, n: best.length };
+}
+
 async function phaseNpcs() {
   const wanted = new Map(); // npcID -> name (from sold-by rows)
   for (const rows of Object.values(itemCache)) {
@@ -215,9 +248,10 @@ async function phaseNpcs() {
       const list = Array.isArray(groups) ? groups : Object.values(groups || {}).flat();
       const coords = list.flatMap((g) => (g && g.coords) || []);
       if (!coords.length) continue;
-      const cx = coords.reduce((a, c) => a + c[0], 0) / coords.length;
-      const cy = coords.reduce((a, c) => a + c[1], 0) / coords.length;
-      zones.push({ z: Number(zone), x: Math.round(cx * 10) / 10, y: Math.round(cy * 10) / 10, n: coords.length });
+      const spot = densestSpot(coords);
+      // raw points are kept so a change of heart about the algorithm never
+      // costs another crawl
+      zones.push({ z: Number(zone), x: spot.x, y: spot.y, n: spot.n, pts: coords });
     }
     zones.sort((a, b) => b.n - a.n);
     if (zones.length) {
