@@ -73,7 +73,7 @@ scripts/              dev tooling (Node 20+, `npm install` once)
 
 ## License / credits
 
-By JeromeM. Issues and suggestions: https://github.com/JeromeM/EasySetCollection/issues
+By Grommey. Issues and suggestions: https://github.com/JeromeM/EasySetCollection/issues
 
 My other addons: [EasyMountFarmer](https://github.com/JeromeM/EasyMountFarmer) —
 a guided, one-mount-at-a-time farming route planner.

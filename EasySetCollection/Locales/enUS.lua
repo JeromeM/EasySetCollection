@@ -230,3 +230,8 @@ L["Right-click: remove from favorites"] = "Right-click: remove from favorites"
 L["Item tooltips"] = "Item tooltips"
 L["Show set membership on item tooltips"] = "Show set membership on item tooltips"
 L["Include out-of-journal sets"] = "Include out-of-journal sets"
+
+-- options window (UI/Options.lua)
+L["About"] = "About"
+L["Hovering a set piece anywhere in the game tells you which set it belongs to, and how far along you are."] = "Hovering a set piece anywhere in the game tells you which set it belongs to, and how far along you are."
+L["/esc options — open the options"] = "/esc options — open the options"

@@ -228,3 +228,8 @@ L["Right-click: remove from favorites"] = "Clic droit : retirer des favoris"
 L["Item tooltips"] = "Infobulles d'objets"
 L["Show set membership on item tooltips"] = "Indiquer l'ensemble sur les infobulles d'objets"
 L["Include out-of-journal sets"] = "Inclure les ensembles hors journal"
+
+-- options window (UI/Options.lua)
+L["About"] = "À propos"
+L["Hovering a set piece anywhere in the game tells you which set it belongs to, and how far along you are."] = "Survolez une pièce d'ensemble n'importe où dans le jeu : l'infobulle indique de quel ensemble elle vient et où vous en êtes."
+L["/esc options — open the options"] = "/esc options — ouvre les options"

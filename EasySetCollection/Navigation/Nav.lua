@@ -15,10 +15,33 @@ function Nav.Available()
   return (FarstriderLib_API and FarstriderLib_API.FindTrailTo) and true or false
 end
 
+local function currentMap()
+  return C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+end
+
+-- Zone events alone don't advance a trail: stepping into an indoor area (the
+-- Wizard's Sanctum on the way to a portal, an inn, a cave) changes the MAP
+-- without firing ZONE_CHANGED_NEW_AREA, and the trail used to sit on "enter
+-- the sanctum" forever. This ticker re-routes whenever the player's map
+-- differs from the one the current step was computed on — it costs one
+-- comparison every two seconds and nothing else.
+local ticker
+
 --- Stop following the current trail (guidance dismissed by the player).
 function Nav.StopFollowing()
   Nav.lastTarget = nil
   Nav.currentLabel = nil
+  Nav.routeMap = nil
+  if ticker then ticker:Cancel() ticker = nil end
+end
+
+local function watchMap()
+  if ticker then return end
+  ticker = C_Timer.NewTicker(2, function()
+    if not (Nav.lastTarget and Nav.Available()) then return end
+    local m = currentMap()
+    if m and m ~= Nav.routeMap then Nav.GuideTo(Nav.lastTarget) end
+  end)
 end
 
 --- Resolve a navigation target ({jid} or {map,x,y}) to map + 0-100 coords.
@@ -39,6 +62,8 @@ function Nav.GuideTo(target)
   local map, x, y = coordsFor(target)
   if not map or not x or not y then return false end
   Nav.lastTarget = target   -- re-routed on zone changes (see Core.lua)
+  Nav.routeMap = currentMap()
+  watchMap()
 
   -- FarstriderLib wants UI coords in 0-1; ours are 0-100.
   local ok, op = pcall(FarstriderLib_API.FindTrailTo, map, x / 100, y / 100, 0)

@@ -406,7 +406,7 @@ function UI.BuildAboutPanel()
 
   local author = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
   author:SetPoint("TOPLEFT", version, "BOTTOMLEFT", 0, -4)
-  author:SetText(L["Author"] .. ": |cffffffffJeromeM|r")
+  author:SetText(L["Author"] .. ": |cffffffffGrommey|r")
 
   local reportLabel = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
   reportLabel:SetPoint("TOPLEFT", author, "BOTTOMLEFT", 0, -16)
@@ -428,6 +428,16 @@ function UI.BuildAboutPanel()
   eb:SetScript("OnMouseUp", function(self) self:HighlightText() end)
   eb:SetScript("OnChar", function(self) self:SetText(url); self:HighlightText() end)   -- keep read-only
 
+  -- every actual setting lives in our own window; this page just leads there
+  local open = W.MakeButton(f, "primary", "GameFontNormal")
+  open:SetSize(240, 28)
+  open:SetPoint("TOPLEFT", eb, "BOTTOMLEFT", -6, -24)
+  open.label:SetText(L["Open the options"])
+  open:SetScript("OnClick", function()
+    if SettingsPanel and SettingsPanel.Hide then SettingsPanel:Hide() end
+    if ns.Options then ns.Options.Show() end
+  end)
+
   f.OnCommit = function() end
   f.OnDefault = function() end
   f.OnRefresh = function() end
@@ -435,390 +445,20 @@ function UI.BuildAboutPanel()
   return f
 end
 
---- Build the "Profiles" canvas frame: switch / create / copy / reset / delete
---- settings profiles (Core/Profiles.lua). Menus are generated on click, so
---- they always list the current profile set.
-function UI.BuildProfilesPanel()
-  if UI.profilesPanel then return UI.profilesPanel end
-  local f = CreateFrame("Frame", "EasySetCollectionProfilesPanel", UIParent)
-  UI.profilesPanel = f
-  local P = ns.Profiles
-
-  local title = f:CreateFontString(nil, "ARTWORK", "GameFontNormalHuge")
-  title:SetPoint("TOPLEFT", 10, -16)
-  title:SetText(L["Profiles"])
-
-  local div = f:CreateTexture(nil, "ARTWORK")
-  div:SetAtlas("Options_HorizontalDivider", true)
-  div:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
-
-  local desc = f:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-  desc:SetPoint("TOPLEFT", div, "BOTTOMLEFT", 2, -12)
-  desc:SetWidth(560)
-  desc:SetJustifyH("LEFT")
-  desc:SetSpacing(3)
-  desc:SetText(L["Profiles hold every setting of the addon; each character picks the one it uses. Tracked sets stay per-character."])
-
-  local refresh   -- repaints the stateful labels (declared below)
-
-  -- current profile: a menu button listing every profile
-  local curLabel = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  curLabel:SetPoint("TOPLEFT", desc, "BOTTOMLEFT", 0, -22)
-  curLabel:SetText(L["Current profile"])
-
-  local curBtn = W.MakeButton(f, "primary", "GameFontNormal")
-  curBtn:SetSize(220, 26)
-  curBtn:SetPoint("TOPLEFT", curLabel, "BOTTOMLEFT", 0, -6)
-  W.AddDropdownArrow(curBtn)
-  curBtn.label:ClearAllPoints()
-  curBtn.label:SetPoint("LEFT", 8, 0)
-  curBtn.label:SetPoint("RIGHT", -16, 0)
-  curBtn.label:SetJustifyH("LEFT")
-  curBtn:SetScript("OnClick", function(self)
-    if not (MenuUtil and MenuUtil.CreateContextMenu) then return end
-    MenuUtil.CreateContextMenu(self, function(_, root)
-      root:CreateTitle(L["Current profile"])
-      for _, name in ipairs(P.List()) do
-        root:CreateRadio(name,
-          function() return name == P.Current() end,
-          function() P.Switch(name) refresh() end)
-      end
-    end)
-  end)
-
-  -- new profile: name box + create-and-switch
-  local newLabel = f:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  newLabel:SetPoint("TOPLEFT", curBtn, "BOTTOMLEFT", 0, -18)
-  newLabel:SetText(L["New profile"])
-
-  local eb = CreateFrame("EditBox", nil, f, "InputBoxTemplate")
-  eb:SetPoint("TOPLEFT", newLabel, "BOTTOMLEFT", 6, -6)
-  eb:SetSize(194, 22)
-  eb:SetAutoFocus(false)
-  eb:SetMaxLetters(40)
-  eb:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-
-  local createBtn = W.MakeButton(f, "primary", "GameFontNormal")
-  createBtn:SetSize(110, 26)
-  createBtn:SetPoint("LEFT", eb, "RIGHT", 10, 0)
-  createBtn.label:SetText(L["Create"])
-  local function createProfile()
-    local name = (eb:GetText() or ""):gsub("^%s+", ""):gsub("%s+$", "")
-    if name == "" then return end
-    P.Switch(name)
-    eb:SetText("")
-    eb:ClearFocus()
-    refresh()
-  end
-  createBtn:SetScript("OnClick", createProfile)
-  eb:SetScript("OnEnterPressed", createProfile)
-
-  -- copy from / reset / delete
-  local copyBtn = W.MakeButton(f, "nav", "GameFontNormal")
-  copyBtn:SetSize(220, 26)
-  copyBtn:SetPoint("TOPLEFT", eb, "BOTTOMLEFT", -6, -18)
-  copyBtn.label:SetText(L["Copy from"])
-  W.AddDropdownArrow(copyBtn)
-  copyBtn:SetScript("OnClick", function(self)
-    if not (MenuUtil and MenuUtil.CreateContextMenu) then return end
-    MenuUtil.CreateContextMenu(self, function(_, root)
-      root:CreateTitle(L["Copy from"])
-      for _, name in ipairs(P.List()) do
-        if name ~= P.Current() then
-          root:CreateButton(name, function() P.CopyFrom(name) refresh() end)
-        end
-      end
-    end)
-  end)
-
-  local resetBtn = W.MakeButton(f, "warn", "GameFontNormal")
-  resetBtn:SetSize(220, 26)
-  resetBtn:SetPoint("LEFT", copyBtn, "RIGHT", 10, 0)
-  resetBtn.label:SetText(L["Reset profile"])
-  resetBtn:SetScript("OnClick", function() P.Reset() refresh() end)
-
-  local deleteBtn = W.MakeButton(f, "warn", "GameFontNormal")
-  deleteBtn:SetSize(220, 26)
-  deleteBtn:SetPoint("TOPLEFT", copyBtn, "BOTTOMLEFT", 0, -12)
-  deleteBtn.label:SetText(L["Delete a profile"])
-  W.AddDropdownArrow(deleteBtn)
-  deleteBtn:SetScript("OnClick", function(self)
-    if not (MenuUtil and MenuUtil.CreateContextMenu) then return end
-    MenuUtil.CreateContextMenu(self, function(_, root)
-      root:CreateTitle(L["Delete a profile"])
-      for _, name in ipairs(P.List()) do
-        if name ~= "Default" and name ~= P.Current() then
-          root:CreateButton(name, function() P.Delete(name) refresh() end)
-        end
-      end
-    end)
-  end)
-
-  refresh = function()
-    curBtn.label:SetText(P.Current())
-  end
-  refresh()
-  f:SetScript("OnShow", refresh)
-
-  f.OnCommit = function() end
-  f.OnDefault = function() end
-  -- the Settings panel calls OnRefresh when it (re)opens the canvas; OnShow
-  -- alone left the current-profile button blank on first display
-  f.OnRefresh = refresh
-
-  return f
-end
-
---- Register the addon's options in the game's Settings panel (idempotent).
+--- Register a single entry in the game's Settings panel (AddOns list). It only
+--- holds a button that opens OUR options window: people look for the addon
+--- there, but every actual setting lives in UI/Options.lua.
 function UI.BuildSettings()
   if UI.settingsCategory then return end
-  if not (Settings and Settings.RegisterVerticalLayoutCategory and Settings.RegisterProxySetting) then return end
-
-  local category
-  if Settings.RegisterCanvasLayoutCategory then
-    category = Settings.RegisterCanvasLayoutCategory(UI.BuildAboutPanel(), L["EasySetCollection"])
-  else
-    category = Settings.RegisterVerticalLayoutCategory(L["EasySetCollection"])
-  end
-  UI.settingsCategory = category
-
-  local pct = function(v) return string.format("%d%%", math.floor(v * 100 + 0.5)) end
-
-  -- Move a Settings checkbox's box to the LEFT and let the label fill the rest of
-  -- the row. The default layout puts the box on the right, truncating long labels.
-  local function leftAlignCheckbox(frame)
-    if not (frame and frame.Checkbox and frame.Text) then return end
-    local base = ((frame.GetIndent and frame:GetIndent()) or 0) + 37
-    frame.Checkbox:ClearAllPoints()
-    frame.Checkbox:SetPoint("LEFT", frame, "LEFT", base, 0)
-    frame.Text:ClearAllPoints()
-    frame.Text:SetPoint("LEFT", frame.Checkbox, "RIGHT", 8, 0)
-    frame.Text:SetPoint("RIGHT", frame, "RIGHT", -8, 0)
-    frame.Text:SetJustifyH("LEFT")
-  end
-
-  local function boolean(cat, variable, name, getter, setter)
-    local setting = Settings.RegisterProxySetting(cat, "EasySetCollection_" .. variable,
-      Settings.VarType.Boolean, name, true, getter, setter)
-    local init = Settings.CreateCheckbox(cat, setting)
-    if init and init.InitFrame then
-      local orig = init.InitFrame
-      init.InitFrame = function(self, frame)
-        orig(self, frame)
-        pcall(leftAlignCheckbox, frame)
-      end
-    end
-  end
-
-  local function scaleSlider(cat, variable, name, getter, setter)
-    if not (Settings.CreateSlider and Settings.CreateSliderOptions) then return end
-    local setting = Settings.RegisterProxySetting(cat, "EasySetCollection_" .. variable,
-      Settings.VarType.Number, name, 1, getter, setter)
-    local options = Settings.CreateSliderOptions(0.5, 2.5, 0.1)
-    options:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, pct)
-    Settings.CreateSlider(cat, setting, options, nil)
-  end
-
-  local function subPage(name)
-    if Settings.RegisterVerticalLayoutSubcategory then
-      return (Settings.RegisterVerticalLayoutSubcategory(category, name))
-    end
-    return category
-  end
-
-  -- bold section header inside a settings page (groups related options)
-  local function sectionHeader(cat, name)
-    if CreateSettingsListSectionHeaderInitializer and SettingsPanel and SettingsPanel.GetLayout then
-      local layout = SettingsPanel:GetLayout(cat)
-      if layout and layout.AddInitializer then
-        layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(name))
-      end
-    end
-  end
-
-  -- ── Window (sub-page); the parent page is the about landing ────────────────
-  local winCat = subPage(L["Window"])
-
-  scaleSlider(winCat, "windowScale", L["Window size"],
-    function() return ns.db.windowScale or 1 end,
-    function(v)
-      ns.db.windowScale = v
-      if UI.frame then UI.frame:SetScale(v) end
-    end)
-
-  boolean(winCat, "locked", L["Lock the window position"],
-    function() return ns.db.locked == true end,
-    function(v) ns.db.locked = v end)
-
-  boolean(winCat, "showMinimap", L["Show the minimap button"],
-    function() return not (ns.db.minimap and ns.db.minimap.hide) end,
-    function(v)
-      ns.db.minimap = ns.db.minimap or {}
-      ns.db.minimap.hide = not v
-      if ns.Minimap then
-        if not ns.Minimap.button and ns.Minimap.Init then ns.Minimap.Init() end
-        if ns.Minimap.button then ns.Minimap.button:SetShown(v) end
-      end
-    end)
-
-  -- ── Item tooltips (same page: they belong to the general look) ─────────────
-  sectionHeader(winCat, L["Item tooltips"])
-
-  boolean(winCat, "tooltipEnabled", L["Show set membership on item tooltips"],
-    function() return ns.db.tooltip and ns.db.tooltip.enabled ~= false end,
-    function(v)
-      ns.db.tooltip = ns.db.tooltip or {}
-      ns.db.tooltip.enabled = v
-    end)
-
-  boolean(winCat, "tooltipExtras", L["Include out-of-journal sets"],
-    function() return ns.db.tooltip and ns.db.tooltip.extras ~= false end,
-    function(v)
-      ns.db.tooltip = ns.db.tooltip or {}
-      ns.db.tooltip.extras = v
-    end)
-
-  -- ── Arrow (sub-page) ────────────────────────────────────────────────────────
-  local arrowCat = subPage(L["Arrow"])
-
-  boolean(arrowCat, "autoGuide", L["Auto-guide (waypoint / action)"],
-    function() return ns.db.autoGuide ~= false end,
-    function(v) ns.db.autoGuide = v end)
-
-  boolean(arrowCat, "arrowEnabled", L["Show the direction arrow"],
-    function() return not (ns.db.arrow and ns.db.arrow.enabled == false) end,
-    function(v)
-      ns.db.arrow = ns.db.arrow or {}
-      ns.db.arrow.enabled = v
-      if not v and ns.Arrow then ns.Arrow.Hide() end
-    end)
-
-  boolean(arrowCat, "arrowMetric", L["Use metric distance (m / km)"],
-    function() return ns.db.arrow and ns.db.arrow.metric == true end,
-    function(v)
-      ns.db.arrow = ns.db.arrow or {}
-      ns.db.arrow.metric = v
-    end)
-
-  scaleSlider(arrowCat, "arrowScale", L["Arrow size"],
-    function() return (ns.db.arrow and ns.db.arrow.scale) or 1 end,
-    function(v)
-      ns.db.arrow = ns.db.arrow or {}
-      ns.db.arrow.scale = v
-      if ns.Arrow and ns.Arrow.ApplyScale then ns.Arrow.ApplyScale() end
-    end)
-
-  scaleSlider(arrowCat, "textScale", L["Text size"],
-    function() return (ns.db.arrow and ns.db.arrow.textScale) or 1 end,
-    function(v)
-      ns.db.arrow = ns.db.arrow or {}
-      ns.db.arrow.textScale = v
-      if ns.Arrow and ns.Arrow.ApplyScale then ns.Arrow.ApplyScale() end
-    end)
-
-  boolean(arrowCat, "arrowLocked", L["Lock the arrow position"],
-    function() return ns.db.arrow and ns.db.arrow.locked == true end,
-    function(v)
-      ns.db.arrow = ns.db.arrow or {}
-      ns.db.arrow.locked = v
-      if ns.Arrow and ns.Arrow.frame then ns.Arrow.frame:EnableMouse(not v) end
-    end)
-
-  -- ── Notifications (sub-page) ────────────────────────────────────────────────
-  local notifCat = subPage(L["Notifications"])
-
-  -- ── section: the loot toast (when does it fire) ─────────────────────────
-  sectionHeader(notifCat, L["When you loot a set piece"])
-
-  boolean(notifCat, "toastEnabled", L["Show a notification when you collect a set piece"],
-    function() return ns.db.toast and ns.db.toast.enabled ~= false end,
-    function(v)
-      ns.db.toast = ns.db.toast or {}
-      ns.db.toast.enabled = v
-    end)
-
-  boolean(notifCat, "toastSound", L["Play a sound with the notification"],
-    function() return ns.db.toast and ns.db.toast.sound ~= false end,
-    function(v)
-      ns.db.toast = ns.db.toast or {}
-      ns.db.toast.sound = v
-    end)
-
-  boolean(notifCat, "toastOnlyComplete", L["Only notify when a set becomes complete"],
-    function() return ns.db.toast and ns.db.toast.onlyComplete == true end,
-    function(v) ns.db.toast.onlyComplete = v end)
-
-  boolean(notifCat, "toastOtherClasses", L["Also notify for other classes' sets"],
-    function() return ns.db.toast and ns.db.toast.otherClasses == true end,
-    function(v) ns.db.toast.otherClasses = v end)
-
-  -- ── section: what goes into the notification body ───────────────────────
-  sectionHeader(notifCat, L["What the notification says"])
-
-  boolean(notifCat, "toastShowPiece", L["Show the piece name"],
-    function() return ns.db.toast and ns.db.toast.showPiece ~= false end,
-    function(v) ns.db.toast.showPiece = v end)
-
-  boolean(notifCat, "toastShowSet", L["Show the set name"],
-    function() return ns.db.toast and ns.db.toast.showSet ~= false end,
-    function(v) ns.db.toast.showSet = v end)
-
-  boolean(notifCat, "toastShowProgress", L["Show the set progress"],
-    function() return ns.db.toast and ns.db.toast.showProgress ~= false end,
-    function(v) ns.db.toast.showProgress = v end)
-
-  boolean(notifCat, "toastShowOtherSets", L["Mention other sets containing the piece"],
-    function() return ns.db.toast and ns.db.toast.showOtherSets ~= false end,
-    function(v) ns.db.toast.showOtherSets = v end)
-
-  -- "Test" button: preview the notification with the current settings
-  if CreateSettingsButtonInitializer and SettingsPanel and SettingsPanel.GetLayout then
-    local initializer = CreateSettingsButtonInitializer(
-      L["Notification preview"], L["Test"],
-      function() UI.TestToast() end,
-      L["Show a sample notification (alternates piece / set complete)."], true)
-    local layout = SettingsPanel:GetLayout(notifCat)
-    if layout and layout.AddInitializer then layout:AddInitializer(initializer) end
-  end
-
-  -- ── section: the in-instance assistant ──────────────────────────────────
-  sectionHeader(notifCat, L["In-instance assistant"])
-
-  boolean(notifCat, "assistEnabled", L["Announce missing set pieces when entering an instance"],
-    function() return ns.db.assist and ns.db.assist.enabled ~= false end,
-    function(v)
-      ns.db.assist = ns.db.assist or {}
-      ns.db.assist.enabled = v
-    end)
-
-  boolean(notifCat, "assistExtras", L["Also announce out-of-journal sets"],
-    function() return ns.db.assist and ns.db.assist.announceExtras == true end,
-    function(v)
-      ns.db.assist = ns.db.assist or {}
-      ns.db.assist.announceExtras = v
-    end)
-
-  boolean(notifCat, "assistToast", L["Show the announcement as a toast (chat is always used)"],
-    function() return ns.db.assist and ns.db.assist.toast ~= false end,
-    function(v)
-      ns.db.assist = ns.db.assist or {}
-      ns.db.assist.toast = v
-    end)
-
-  -- ── Profiles (canvas sub-page): settings profiles management ───────────────
-  if Settings.RegisterCanvasLayoutSubcategory then
-    Settings.RegisterCanvasLayoutSubcategory(category, UI.BuildProfilesPanel(), L["Profiles"])
-  end
-
-  Settings.RegisterAddOnCategory(category)
+  if not (Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory) then return end
+  UI.settingsCategory = Settings.RegisterCanvasLayoutCategory(UI.BuildAboutPanel(), L["EasySetCollection"])
+  Settings.RegisterAddOnCategory(UI.settingsCategory)
 end
 
---- Build the settings if needed and open the game's Settings panel to this category.
+
+--- Open the addon's own options window (UI/Options.lua).
 function UI.OpenSettings()
-  UI.BuildSettings()
-  if UI.settingsCategory and Settings and Settings.OpenToCategory then
-    Settings.OpenToCategory(UI.settingsCategory:GetID())
-  end
+  if ns.Options then ns.Options.Show() end
 end
 
 -- ---------------------------------------------------------------------------
