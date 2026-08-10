@@ -64,6 +64,12 @@ end
 -- boss drop but a sibling item of the same appearance is, that sibling is the
 -- piece's FARMABLE face: display, guidance, assistant and lockouts all follow.
 
+-- forward declaration: TokenBossFor (just below) needs the Encounter Journal
+-- boss index, which is defined further down with the rest of the EJ helpers.
+-- Without this it would be a global lookup — nil at call time, and every
+-- piece resolution would fail.
+local ensureBossIndex
+
 local bossAltCache = {}   -- [sourceID] = boss-drop sibling sourceID | false
 
 local function bossAltSource(sourceID)
@@ -106,22 +112,53 @@ local function farmSource(piece)
   if alt then return alt, ns.SRC.BOSS end
   local drops = dropsFor(piece.sourceID)
   if drops and #drops > 0 then return piece.sourceID, ns.SRC.BOSS end
+  -- a tier piece is EXCHANGED for a token a boss drops: the vendor is a
+  -- counter, the farm is the boss (Sources.TokenBossFor names it)
+  if Sources.TokenBossFor(piece) then return piece.sourceID, ns.SRC.BOSS end
   return piece.sourceID, piece.sourceType
+end
+
+--- The boss whose token buys this piece: localized name, or nil when the piece
+--- isn't a token exchange. Baked in Data/Vendors.lua as npc IDs; the name is
+--- resolved live so it comes out in the player's language.
+function Sources.TokenBossFor(piece)
+  local V = EasySetCollectionVendors
+  local t = V and V.tokens and piece and piece.itemID and V.tokens[piece.itemID]
+  if not (t and t.n and t.n[1]) then return nil end
+  local name = Sources.NpcName(t.n[1])
+  if not name then return nil end
+  -- the BOSS decides the instance, not the set: the three T4 tokens drop in
+  -- Karazhan, Gruul's Lair and Magtheridon's Lair respectively
+  local idx = ensureBossIndex()
+  return name, (idx and idx[name] or nil)
 end
 
 -- --- Encounter Journal name index (runtime fallback, built once) ------------
 
-local ejIndex   -- [localized instance name] = journalInstanceID
-local ejIsRaid  -- [journalInstanceID] = true for raids
+local ejIndex     -- [localized instance name] = journalInstanceID
+local ejIsRaid    -- [journalInstanceID] = true for raids
+local ejBossIndex -- [localized encounter name] = journalInstanceID
 
+local ejWalked    -- the walk below runs at most once per session, ever
+
+-- Instances AND their encounters in a single walk, mirroring the generator's
+-- phase 1 (Tools/Generator.lua) — the shape the client is known to accept.
+-- Two details matter, and both cost a whole evening when missed:
+--   * an instance only lists its encounters once EJ_SelectInstance has run,
+--   * and that selection only answers while ITS OWN tier is the selected one,
+-- so the encounters have to be read inside the tier loop, not from a second
+-- pass over the finished index.
 local function ensureEJIndex()
-  if ejIndex then return ejIndex end
+  if ejWalked then return ejIndex end
   if not (EJ_GetNumTiers and EJ_SelectTier and EJ_GetInstanceByIndex) then
     if C_AddOns and C_AddOns.LoadAddOn then pcall(C_AddOns.LoadAddOn, "Blizzard_EncounterJournal") end
   end
   if not (EJ_GetNumTiers and EJ_SelectTier and EJ_GetInstanceByIndex) then return nil end
 
-  ejIndex, ejIsRaid = {}, {}
+  -- set before the loop: a walk that errors out must never be retried, or a
+  -- refresh calling in per piece turns one slow pass into a frozen client
+  ejWalked = true
+  ejIndex, ejIsRaid, ejBossIndex = {}, {}, {}
   local prevTier = EJ_GetCurrentTier and EJ_GetCurrentTier()
   for tier = 1, EJ_GetNumTiers() do
     EJ_SelectTier(tier)
@@ -132,6 +169,16 @@ local function ensureEJIndex()
         if not jid then break end
         if name and not ejIndex[name] then ejIndex[name] = jid end
         if isRaid then ejIsRaid[jid] = true end
+        if EJ_SelectInstance and EJ_GetEncounterInfoByIndex then
+          pcall(EJ_SelectInstance, jid)
+          local e = 1
+          while true do
+            local ok, ename = pcall(EJ_GetEncounterInfoByIndex, e, jid)
+            if not ok or not ename then break end
+            if not ejBossIndex[ename] then ejBossIndex[ename] = jid end
+            e = e + 1
+          end
+        end
         i = i + 1
       end
     end
@@ -139,6 +186,11 @@ local function ensureEJIndex()
   -- EJ_SelectTier mutates shared Encounter Journal state; put it back
   if prevTier then pcall(EJ_SelectTier, prevTier) end
   return ejIndex
+end
+
+ensureBossIndex = function()
+  ensureEJIndex()
+  return ejBossIndex
 end
 
 --- journalInstanceID for a localized instance name (EJ name index), nil when
@@ -194,6 +246,12 @@ end
 --- The instance a piece drops in: baked ID first, live name-match fallback.
 ---@return number? journalInstanceID, string? localized instance name
 function Sources.PieceInstance(setID, piece)
+  -- a token piece belongs to the instance of the boss dropping its token,
+  -- which is often NOT the set's dominant one (the T4 tokens are spread over
+  -- Karazhan, Gruul's Lair and Magtheridon's Lair)
+  local tokenBoss, tokenJid = Sources.TokenBossFor(piece)
+  if tokenBoss and tokenJid then return tokenJid, Sources.InstanceName(tokenJid) end
+
   local baked = EasySetCollectionSets and EasySetCollectionSets[setID]
   if baked then
     local p = baked.pieces and baked.pieces[piece.sourceID]
@@ -225,6 +283,27 @@ end
 --- vendor data: { npc, name, map, x, y } — located vendors win over name-only
 --- ones; nil when the set has none. Names are baked in English and displayed
 --- through ns.L (translatable, falls back to the key).
+-- Baked NPC names are English (Wowhead). The client knows the localized one:
+-- a synthetic creature hyperlink resolves it from its own database, without
+-- the NPC being anywhere near us. Guarded against 12.x secret values, and
+-- cached — the tooltip call is not free.
+local npcNameCache = {}
+function Sources.NpcName(npcID, fallback)
+  if not npcID then return fallback end
+  local cached = npcNameCache[npcID]
+  if cached then return cached end
+  if C_TooltipInfo and C_TooltipInfo.GetHyperlink then
+    local ok, data = pcall(C_TooltipInfo.GetHyperlink, ("unit:Creature-0-0-0-0-%d-0"):format(npcID))
+    local line = ok and data and data.lines and data.lines[1]
+    local txt = line and line.leftText
+    if type(txt) == "string" and txt ~= "" and not (issecretvalue and issecretvalue(txt)) then
+      npcNameCache[npcID] = txt
+      return txt
+    end
+  end
+  return fallback
+end
+
 function Sources.VendorFor(setID)
   local V = EasySetCollectionVendors
   local list = V and V.sets and V.sets[setID]
@@ -236,7 +315,8 @@ function Sources.VendorFor(setID)
     if side == 3 or side == mySide then
       local npc = V.npcs and V.npcs[e.n]
       if npc then
-        local cand = { npc = e.n, name = npc.name, map = npc.map, x = npc.x, y = npc.y }
+        local cand = { npc = e.n, name = Sources.NpcName(e.n, npc.name),
+                       map = npc.map, x = npc.x, y = npc.y }
         if cand.map and cand.x then return cand end
         best = best or cand
       end
@@ -273,6 +353,12 @@ function Sources.PieceSourceText(setID, piece)
       end
       if txt ~= "" then return txt end
     end
+    -- token exchange: name the boss that drops the token, in ITS instance
+    local boss, bossJid = Sources.TokenBossFor(piece)
+    if boss then
+      local jid = bossJid or Sources.PieceInstance(setID, piece)
+      return jid and (boss .. " – " .. Sources.InstanceName(jid)) or boss
+    end
     local jid = Sources.PieceInstance(setID, piece)
     if jid then return Sources.InstanceName(jid) end
   end
@@ -299,7 +385,7 @@ function Sources.PieceSourceText(setID, piece)
     local name = ov and ov.npc and L[ov.npc]
     if not name then
       local v = Sources.VendorFor(setID)
-      name = v and L[v.name]
+      name = v and v.name
     end
     return name
       and string.format(L["%s: %s"], Sources.SourceLabel(piece.sourceType), name)
@@ -387,7 +473,9 @@ function Sources.PieceSourceParts(setID, piece)
       end
     end
     local loc = (jid and Sources.InstanceName(jid)) or (d and d.instance)
-    if loc then return loc, d and d.encounter or nil end
+    local boss = (not d) and Sources.TokenBossFor(piece) or nil
+    if loc then return loc, (d and d.encounter) or boss end
+    if boss then return Sources.SourceLabel(ns.SRC.BOSS), boss end
     return Sources.SourceLabel(piece.sourceType), nil
   elseif piece.sourceType == ns.SRC.QUEST then
     local ov = overrideFor(setID)
@@ -405,7 +493,7 @@ function Sources.PieceSourceParts(setID, piece)
     local name = (ov and ov.npc and L[ov.npc]) or nil
     if not name then
       local v = Sources.VendorFor(setID)
-      name = v and L[v.name] or nil
+      name = v and v.name or nil
     end
     return Sources.SourceLabel(piece.sourceType), name
   end
@@ -673,7 +761,7 @@ function Sources.LocationLabel(g)
           local info = C_Map.GetMapInfo(v.map)
           label = info and info.name
         end
-        if not label then label = L[v.name] end
+        if not label then label = v.name end
       end
     end
 
@@ -777,7 +865,7 @@ function Sources.GuideTargets(setID)
   if #out == 0 then
     local v = Sources.VendorFor(setID)
     if v and v.map and v.x and v.y then
-      out[#out + 1] = { map = v.map, x = v.x, y = v.y, title = L[v.name], vendor = true }
+      out[#out + 1] = { map = v.map, x = v.x, y = v.y, title = v.name, vendor = true }
     end
   end
 
@@ -804,7 +892,7 @@ function Sources.NavForPiece(setID, piece)
     end
     local v = Sources.VendorFor(setID)
     if v and v.map and v.x and v.y then
-      return { map = v.map, x = v.x, y = v.y, title = L[v.name], vendor = true }
+      return { map = v.map, x = v.x, y = v.y, title = v.name, vendor = true }
     end
   end
   return nil

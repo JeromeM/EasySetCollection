@@ -105,6 +105,41 @@ const instMeta = gen.instances || {};
 
 const round1 = (n) => (n == null ? null : Math.round(n * 10) / 10);
 
+// Marks of Honor buy every legacy PvP piece, and nothing else — the one
+// reliable "this is arena/battleground gear" marker in the vendor data.
+const MARK_OF_HONOR = 137642;
+const costPairs = (row) => {
+  const c = row && row.cost && row.cost[0];
+  return Array.isArray(c) ? [...(c[1] || []), ...(c[2] || [])] : [];
+};
+const paidInMarks = (row) => costPairs(row).some((p) => p && p[0] === MARK_OF_HONOR);
+
+// pieces exchanged for a token a boss drops (see the vendor section below):
+// needed by classify(), which runs before the vendor layer is built
+const tokenPieces = new Set();
+const pvpItems = new Set();
+{
+  const VEND = join(ROOT, 'data', 'vendor-sources.json');
+  const TOK = join(ROOT, 'data', 'token-sources.json');
+  if (existsSync(VEND) && existsSync(TOK)) {
+    const vend = JSON.parse(readFileSync(VEND, 'utf8'));
+    const tok = JSON.parse(readFileSync(TOK, 'utf8'));
+    for (const [itemID, rows] of Object.entries(vend)) {
+      if (!Array.isArray(rows) || !rows.length) continue;
+      // Legacy purveyors (Karynna & co) also trade old arena gear for tier
+      // tokens, so a Gladiator helm looks exactly like a tier helm here. It
+      // is not a raid drop: the farm is Marks of Honor, never the boss.
+      if (rows.some(paidInMarks)) { pvpItems.add(Number(itemID)); continue; }
+      const cost = rows[0].cost && rows[0].cost[0];
+      if (!Array.isArray(cost)) continue;
+      for (const pair of [...(cost[1] || []), ...(cost[2] || [])]) {
+        const info = pair && pair[0] && tok[pair[0]];
+        if (info && info.drops && info.drops.length) { tokenPieces.add(Number(itemID)); break; }
+      }
+    }
+  }
+}
+
 // classify one set from its pieces (+ the client-side pvp flag)
 function classify(rec) {
   if (rec.pvp) return 'pvp';
@@ -114,6 +149,9 @@ function classify(rec) {
     let ct;
     if (p.j != null) {
       ct = instMeta[p.j]?.raid ? 'raid' : 'dungeon';
+    } else if (p.st === 3 && tokenPieces.has(p.itemID)) {
+      // exchanged for a boss token: a raid set, not a vendor set
+      ct = 'raid';
     } else {
       ct = ST_CT[p.st];
     }
@@ -238,11 +276,15 @@ if (existsSync(VEND_SRC)) {
       if (Array.isArray(cached) && cached.length) { rows = cached; break; }
     }
     if (!rows) continue;
+    // an arena set is farmed with Marks of Honor: name that vendor, not the
+    // legacy purveyor who happens to also take a tier token for it
+    const pvpSet = items.some((i) => pvpItems.has(i));
     const bySide = {};
     for (const r of rows) {
       const npc = npcCache[r.id];
       const located = npc && npc.zone != null && zoneMap[npc.zone] != null;
-      const rank = (located ? 1e6 : 0) + (r.pop || 0);
+      const rank = (pvpSet && paidInMarks(r) ? 1e8 : 0)
+        + (located ? 1e6 : 0) + (r.pop || 0);
       const s = sideOf(r.react);
       if (!bySide[s] || rank > bySide[s].rank) bySide[s] = { row: r, rank };
     }
@@ -296,12 +338,36 @@ if (existsSync(VEND_SRC)) {
     }
     lines.push('  },');
   };
+  // token chain: a tier piece is exchanged for a token a boss drops. Bake
+  // pieceItemID -> the npc that drops its token, so the runtime can say
+  // "Prince Malchezaar" instead of "Vendor: Arodis Sunblade".
+  const tokens = {};
+  const TOK_SRC = join(ROOT, 'data', 'token-sources.json');
+  if (existsSync(TOK_SRC)) {
+    const tokenInfo = JSON.parse(readFileSync(TOK_SRC, 'utf8'));
+    for (const [itemID, rows] of Object.entries(vendCache)) {
+      if (!Array.isArray(rows) || !rows.length) continue;
+      if (pvpItems.has(Number(itemID))) continue;   // arena gear, not tier
+      const cost = rows[0].cost && rows[0].cost[0];
+      if (!Array.isArray(cost)) continue;
+      for (const pair of [...(cost[1] || []), ...(cost[2] || [])]) {
+        const info = pair && pair[0] && tokenInfo[pair[0]];
+        if (info && info.drops && info.drops.length) {
+          tokens[itemID] = { t: pair[0], n: info.drops.map((d) => d.npc) };
+          break;
+        }
+      }
+    }
+  }
+
   pushKeyed('npcs', vendNpcs);
   pushKeyed('sets', vendSets);
+  pushKeyed('tokens', tokens);
   lines.push('}', '');
   writeFileSync(OUT_VEND, lines.join('\n'));
 
-  vendReport = { sets: Object.keys(vendSets).length, npcs: usedNpcs.size, located, unmappedZones };
+  vendReport = { sets: Object.keys(vendSets).length, npcs: usedNpcs.size, located,
+    tokens: Object.keys(tokens).length, unmappedZones };
 }
 
 // --- report --------------------------------------------------------------------
@@ -372,7 +438,8 @@ if (extraReport) {
 }
 if (vendReport) {
   console.log(`vendors:   ${vendReport.sets} sets -> a selling NPC `
-    + `(${vendReport.npcs} npcs, ${vendReport.located} located) -> ${OUT_VEND}`);
+    + `(${vendReport.npcs} npcs, ${vendReport.located} located), `
+    + `${vendReport.tokens} pieces bought with a boss-dropped token -> ${OUT_VEND}`);
   if (vendReport.unmappedZones.size) {
     console.log(`WARN ${vendReport.unmappedZones.size} Wowhead zone(s) without a uiMapID — their vendors bake name-only.`);
     console.log('     Add them to data/zone-uimap.json:');
