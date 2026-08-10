@@ -13,9 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   farm guidance, weekly lockouts, the in-instance assistant, Suggest and the
   dressing-room preview all work. (Set names for these come from the
   community and exist in English only.)
-- The set list folds into expansion sections (favorites get their own) —
-  click a header to collapse or expand it. The Journal tab starts fully
-  open, the Off-journal tab starts folded.
 
 ### Added
 - **Vendor sets know their vendor**: pieces sold by a NPC now name it and show

@@ -214,7 +214,6 @@ L["Guides to the selected piece."] = "Guides to the selected piece."
 
 -- out-of-journal sets (Data/ExtraSets.lua)
 L["Off-journal"] = "Off-journal"
-L["Favorites"] = "Favorites"
 L["Also announce out-of-journal sets"] = "Also announce out-of-journal sets"
 L["Open the options"] = "Open the options"
 L["When you loot a set piece"] = "When you loot a set piece"
