@@ -4,7 +4,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.1] - 2026-08-10
+
+### Added
+- **Item tooltips tell you about the set**: hovering any piece of a set
+  anywhere in the game — bags, loot, chat links, the auction house — adds
+  the set's name and your progress on it. Sets of your class come first,
+  and off-journal sets are included. Both can be turned off in
+  Options → Window.
+- **Favorites from the list**: click the star on a row (it appears faintly
+  while you hover) or right-click the row. Journal sets use the game's own
+  favorites, so the wardrobe agrees; off-journal sets keep theirs in your
+  profile.
 
 ### Changed
 - Vendor prices are gone from the piece lines: the sets people actually look
@@ -13,11 +24,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Piece rows shrink a little instead of pushing the last piece of a 9-piece
   set behind a "+1 more" line.
 
-### Added
-- Sets can be marked as favorites from the list: click the star badge on a row
-  (it shows up faintly when you hover), or right-click the row. Journal sets
-  use the game's own favorites, so the wardrobe agrees; off-journal sets keep
-  theirs in your profile.
+### Fixed
+- More vendors can be guided to: sellers in Ashran, the new Silvermoon City,
+  Sinfall, the Seat of the Primus, Tazavesh and the Emerald Dream had no
+  location, and some were stranded on a scenario copy of their city. 92 of
+  the 93 known sellers now have coordinates.
+- The Profiles options page showed a blank current profile and a row of red
+  Blizzard buttons; it now uses the addon's own look and says which profile
+  you are on.
 
 ## [1.3.0] - 2026-08-10
 
