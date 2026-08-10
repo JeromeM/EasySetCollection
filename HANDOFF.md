@@ -136,8 +136,13 @@ generated-data + hand-override data layer, custom CI/packaging scripts.
   (debounced 150ms) and `MakeProgressBar`.
 - `UI/UI.lua` — 760×560 two-pane shell, toolbar (search / class dropdown /
   Filters badge), footer (counts / sort), Settings pages (about canvas +
-  Window / Arrow / Notifications sub-pages, `leftAlignCheckbox` hack), and the
-  queued loot **toast** (`NotifyNewPiece`).
+  Window / Arrow / Notifications sub-pages — the last one split by
+  `sectionHeader` — plus the `leftAlignCheckbox` hack), and the queued loot
+  **toast** (`NotifyNewPiece`). The window is in `UISpecialFrames` (Esc
+  closes it), so ALL close bookkeeping lives in its `OnHide` hook —
+  `UI.Hide()` just calls `Hide()`. Toasts are mouse-enabled: right-click
+  dismisses and pulls the next queued one, left-click opens the window on
+  `data.baseSetID` (set by NotifyNewPiece / NotifyAssist / TestToast).
 - `UI/SetList.lua` — the left list: `WowScrollBoxList` + `MinimalScrollBar` +
   `CreateScrollBoxListLinearView` (extent 44), lazily-built Button rows,
   loading/empty states. TWO TABS above the box (`db.listTab`): Journal /

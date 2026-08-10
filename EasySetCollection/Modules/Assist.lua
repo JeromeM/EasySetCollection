@@ -180,7 +180,7 @@ function Assist.Check()
     local line = (#list == 1) and L["A set piece you're missing drops here!"]
       or string.format(L["%d set pieces you're missing drop here!"], #list)
     if ns.db.assist.toast ~= false and ns.UI and ns.UI.NotifyAssist then
-      ns.UI.NotifyAssist(instName, line, ns.Pieces.SetIcon(list[1].setID))
+      ns.UI.NotifyAssist(instName, line, ns.Pieces.SetIcon(list[1].setID), list[1].setID)
     end
     ns.Print(instName .. " — " .. line)
     local facets = currentDifficultyFacets()

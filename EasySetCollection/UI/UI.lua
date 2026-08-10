@@ -43,6 +43,14 @@ function UI.Init()
   if UI.frame then return end
 
   local f = CreateFrame("Frame", "EasySetCollectionFrame", UIParent, "BackdropTemplate")
+  -- Esc closes the window like any standard panel (user request). The game
+  -- calls Hide() directly, so the open-state bookkeeping lives in OnHide.
+  tinsert(UISpecialFrames, "EasySetCollectionFrame")
+  f:HookScript("OnHide", function()
+    if ns.db then ns.db.shown = false end
+    if ns.FilterPanel and ns.FilterPanel.Hide then ns.FilterPanel.Hide() end
+    if ns.Travel then ns.Travel.Hide() end
+  end)
   UI.frame = f
   f:SetSize(UI.W, UI.H)
   f:SetScale((ns.db and ns.db.windowScale) or 1)
@@ -332,15 +340,16 @@ function UI.Show()
   if ns.Onboard then ns.Onboard.MaybeStart() end
 end
 
+--- Close the window. The bookkeeping lives in the frame's OnHide hook so that
+--- Esc (UISpecialFrames calls Hide directly) takes the exact same path.
+--- The waypoint + arrow deliberately survive closing the window: they are
+--- dismissed from the arrow's right-click menu ("Close") or by guiding elsewhere.
 function UI.Hide()
-  if ns.db then ns.db.shown = false end
-  if UI.frame then UI.frame:Hide() end
-  if ns.FilterPanel and ns.FilterPanel.Hide then ns.FilterPanel.Hide() end
-  -- the secure travel button is parented to UIParent (combat rules) and would
-  -- float alone once its dock hides with the window
-  if ns.Travel then ns.Travel.Hide() end
-  -- the waypoint + arrow deliberately survive closing the window: they are
-  -- dismissed from the arrow's right-click menu ("Close") or by guiding elsewhere
+  if UI.frame then
+    UI.frame:Hide()
+  elseif ns.db then
+    ns.db.shown = false
+  end
 end
 
 function UI.Toggle()
@@ -804,8 +813,27 @@ showNextToast = function()
     p.text:SetPoint("LEFT", p.iconFrame, "RIGHT", 12, 0)
     p.text:SetPoint("RIGHT", -12, 0)
     p.text:SetJustifyH("LEFT")
+    -- right-click dismisses (and surfaces the next queued toast so a loot
+    -- burst can be scanned one flick at a time); left-click opens the window
+    -- on the set the toast is about
+    p:EnableMouse(true)
+    p:SetScript("OnMouseUp", function(self, btn)
+      if self.timer then self.timer:Cancel() end
+      local data = self.data
+      self:Hide()
+      showNextToast()
+      if btn ~= "RightButton" and data and data.baseSetID then
+        local g = ns.Sets.GroupFor and ns.Sets.GroupFor(data.baseSetID)
+        if g then
+          UI.Show()
+          ns.SetList.Select(g)
+          if ns.SetList.ScrollTo then ns.SetList.ScrollTo(g.baseSetID) end
+        end
+      end
+    end)
     UI.toast = p
   end
+  p.data = data
 
   local brd = data.complete and W.C_GREEN or W.C_GOLD_BRD
   p:SetBackdropBorderColor(brd[1], brd[2], brd[3], 1)
@@ -851,12 +879,22 @@ end
 
 --- In-instance assistant toast (Modules/Assist.lua): instance name as the
 --- title, missing count as the body. Silent — it's an FYI, not loot.
-function UI.NotifyAssist(title, line, icon)
+function UI.NotifyAssist(title, line, icon, setID)
+  local baseID
+  if setID then
+    if setID < 0 then
+      baseID = setID   -- synthetic set: baseSetID == setID
+    else
+      local i = C_TransmogSets.GetSetInfo and C_TransmogSets.GetSetInfo(setID)
+      baseID = i and (i.baseSetID or i.setID) or nil
+    end
+  end
   enqueueToast({
     title = W.AMBER .. (title or "") .. "|r",
     line = line,
     icon = icon or "Interface\\Icons\\INV_Misc_Map01",
     silent = true,
+    baseSetID = baseID,
   })
 end
 
@@ -890,6 +928,7 @@ function UI.TestToast()
     icon = icon,
     line = buildToastLine(pieceName, setName, n, t, complete and 0 or 1),
     complete = complete,
+    baseSetID = ns.SetList and ns.SetList.selected or nil,
   })
 end
 
@@ -961,6 +1000,7 @@ function UI.NotifyNewPiece(sourceID)
       icon = icon,
       line = buildToastLine(pieceName or "?", setName, n, t, totalSets - 1),
       complete = complete,
+      baseSetID = baseID,   -- left-clicking the toast opens the set
     })
   end
 

@@ -37,6 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   once). A brand new install also gets a one-time chat hint about `/esc`.
 
 ### Changed
+- The window closes with `Esc`, like any other panel.
+- Notifications answer the mouse: right-click dismisses one and brings up the
+  next queued one (handy to scan a burst of loot), left-click opens the window
+  on the set it is about.
 - The set list tags rows with their category (Raid, Dungeon, Vendor, …); the
   full story moved to the detail pane, which now lists EVERY place the set
   comes from — all its instances, then World, Vendor and the like. No more
