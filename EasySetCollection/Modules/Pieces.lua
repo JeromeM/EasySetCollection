@@ -56,35 +56,64 @@ local function extraPieces(x)
     end
     local si = sourceID and C_TransmogCollection.GetSourceInfo(sourceID)
     if si then
-      -- source info of NON-journal items carries no name/quality: try the
-      -- transmog item LINK first (local wardrobe data, instant), then the
-      -- item cache; still-cold items get a load request and resolve on the
-      -- pane's ContinueOnItemLoad repaint
-      local iName, iQuality
-      if C_TransmogCollection.GetAppearanceSourceInfo then
-        local ok, _, _, _, _, _, link = pcall(C_TransmogCollection.GetAppearanceSourceInfo, sourceID)
-        if ok and type(link) == "string" then
-          local n = link:match("%[(.-)%]")
-          if n and n ~= "" then iName = n end
+      -- name of a source: the transmog item LINK (local wardrobe data,
+      -- instant), then the source's own name, then the item cache
+      local function nameOf(sid, s)
+        local nm
+        if C_TransmogCollection.GetAppearanceSourceInfo then
+          local ok, _, _, _, _, _, link = pcall(C_TransmogCollection.GetAppearanceSourceInfo, sid)
+          if ok and type(link) == "string" then
+            nm = link:match("%[(.-)%]")
+            if nm == "" then nm = nil end
+          end
+        end
+        if not nm and s and s.name and s.name ~= "" then nm = s.name end
+        if not nm and s and s.itemID and C_Item and C_Item.GetItemInfo then
+          nm = C_Item.GetItemInfo(s.itemID)
+        end
+        return nm
+      end
+
+      local vid = visualID or si.visualID
+      local useSID, useSI = sourceID, si
+      local iName = nameOf(sourceID, si)
+      if not iName then
+        -- Wowhead sometimes lists an unused duplicate item the server never
+        -- serves ("Retrieving item information" forever): represent the piece
+        -- through a LIVE sibling source of the same appearance instead — that
+        -- fixes the name, the tooltip and the dressing room in one move
+        local ok, all = pcall(C_TransmogCollection.GetAllAppearanceSources, vid)
+        if ok and type(all) == "table" then
+          for _, sid in ipairs(all) do
+            if sid ~= sourceID then
+              local s2 = C_TransmogCollection.GetSourceInfo(sid)
+              local n2 = s2 and nameOf(sid, s2)
+              if n2 then
+                useSID, useSI, iName = sid, s2, n2
+                break
+              end
+            end
+          end
         end
       end
-      if C_Item and C_Item.GetItemInfo then
-        local n, _, q = C_Item.GetItemInfo(si.itemID or itemID)
-        iName, iQuality = iName or n, q
-      end
       if not iName and C_Item and C_Item.RequestLoadItemDataByID then
-        pcall(C_Item.RequestLoadItemDataByID, si.itemID or itemID)
+        pcall(C_Item.RequestLoadItemDataByID, useSI.itemID or itemID)
+      end
+      local iQuality
+      if useSI.itemID and C_Item and C_Item.GetItemInfo then
+        local _, _, q = C_Item.GetItemInfo(useSI.itemID)
+        iQuality = q
       end
       out[#out + 1] = {
-        sourceID = sourceID,
-        collected = visualCollected(visualID or si.visualID),
-        sourceCollected = si.isCollected,
-        itemID = si.itemID or itemID,
-        itemModID = si.itemModID,
-        invType = si.invType,
-        sourceType = (si.sourceType and si.sourceType > 0) and si.sourceType or nil,
-        name = (si.name and si.name ~= "") and si.name or iName,
-        quality = si.quality or iQuality,
+        sourceID = useSID,
+        collected = visualCollected(vid),
+        sourceCollected = useSI.isCollected,
+        itemID = useSI.itemID or itemID,
+        itemModID = useSI.itemModID,
+        invType = useSI.invType,
+        sourceType = (useSI.sourceType and useSI.sourceType > 0) and useSI.sourceType or nil,
+        name = iName,
+        quality = useSI.quality or iQuality,
       }
     else
       pending = true
