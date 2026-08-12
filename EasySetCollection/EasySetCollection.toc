@@ -2,7 +2,7 @@
 ## Title: EasySetCollection
 ## Notes: Transmog set collection browser with per-piece sources and farm guidance
 ## Author: Grommey
-## Version: 1.3.3
+## Version: 1.3.3.1
 ## X-Curse-Project-ID: 1642958
 ## SavedVariables: EasySetCollectionDB, EasySetCollectionGen
 ## SavedVariablesPerCharacter: EasySetCollectionCharDB
