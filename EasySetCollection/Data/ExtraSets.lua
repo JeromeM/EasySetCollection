@@ -1659,7 +1659,7 @@ EasySetCollectionExtraSets = {
   [12616] = { name = "Chitinoid World Set", e = 10, at = 3, items = { 224685, 224687, 224682, 224688, 224686, 224683, 224689, 224684 } },
   [12617] = { name = "Sedimentary World Set", e = 10, at = 4, items = { 224693, 224695, 224690, 224696, 224694, 224691, 224697, 224692 } },
   [12628] = { name = "Trapper's Fur-Lined Quiver", e = 9, at = 0, items = { 190449 } },
-  [12629] = { name = "Trapper's Shot Pouch", e = 9, at = 0, items = { 190448 } },
+  [12629] = { name = "Trapper's Shot Pouch", e = 8, at = 0, items = { 190448 } },
   [12630] = { name = "Sylvan Stalker's Leathers", e = 9, at = 2, items = { 239817, 239815, 190811, 190436, 239816, 239820, 239814, 239818 } },
   [12640] = { name = "Scarlet Zealot's Trappings", e = 9, at = 0, items = { 190444, 190427, 207029 } },
   [12652] = { name = "Webbed Saronite Death Knight Set", e = 9, at = 4, items = { 208627, 208628, 208629 } },
