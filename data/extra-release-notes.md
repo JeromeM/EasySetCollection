@@ -1,4 +1,4 @@
 Weekly data update: 0 new out-of-journal set(s).
 
 
-3 existing set(s) updated (pieces or metadata).
+1 existing set(s) updated (pieces or metadata).
